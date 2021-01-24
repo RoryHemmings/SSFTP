@@ -1,0 +1,31 @@
+# Read about reference pointers
+# Finish socket class
+# Finish Client and then test client with poc server
+
+# Basically rewrite the client to mimic the poc but the commands will be in
+# main, and the connection will be handled by client socket
+#
+# Release clients from memory on server side
+# Implment generic socket recv function
+# 
+# debug mode
+# comment all the code
+# 
+# output logs into files
+#
+# make loggers based on streams
+#
+# Tests:
+# - Make sure that when two clients send a message at the same time, they dont
+# get ignored
+# - make sure that everything is being deleted correctly 
+#
+#
+# Notes:
+# I am not making any pure virtual functions and instead completely overriding
+# the Socket recv and close function in ServerSocket, becuase the normal recv
+# function will suffice for most types of sockets, whereas it wont for the
+# ServerSocket.
+#
+# Questions
+# ask about memory being released when client leaves

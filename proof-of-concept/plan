@@ -1,0 +1,11 @@
+Create namespace for logging
+  have enum for colors
+  create logging functions
+  create debug functions
+
+Create high level socket classes
+
+Use select so that threads don't have to be used
+
+Have vector of clients on server end
+
