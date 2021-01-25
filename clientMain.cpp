@@ -15,7 +15,7 @@
 
 int main(int argc, char** argv)
 {
-  ClientSocket clientSocket("192.168.1.81", 3000);
+  ClientSocket clientSocket("127.0.0.1", 3000);
 
   LOGGER::Log(">>> ", LOGGER::COLOR::RED, false);
   std::string input;
