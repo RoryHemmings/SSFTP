@@ -79,6 +79,12 @@ ClientSocket::ClientSocket(const string& address, int port)
   LOGGER::DebugLog("Connection Established");
 }
 
+void ClientSocket::recv(char* buffer)
+{
+  // Recieves info
+  read(sock, buffer, BUF_LEN);
+}
+
 ServerSocket::ServerSocket(const string& adress, int port)
   : Socket()
 {
@@ -177,6 +183,7 @@ Socket* ServerSocket::recv(char* buffer)
         // Allocate new memory to this new client
         Socket* client = new Socket(fd);
         clients.push_back(client); 
+        client->sendLine("welcome");
 
         // getpeername(fd, (struct sockaddr*)&adress, (socklen_t*)&addrlen);
         // LOGGER::Log("New Client (" + string(inet_ntoa(adress.sin_addr)) + ") connected", LOGGER::COLOR::GREEN);
@@ -199,11 +206,10 @@ Socket* ServerSocket::recv(char* buffer)
       if (FD_ISSET(fd, &readfds))
       {
         // Read from the socket
-        valread = read(fd, buffer, 1024);
+        valread = read(fd, buffer, BUF_LEN);
 
         if (valread == 0)
         {
-          // TODO change log to be based off of Socket Objects
           LOGGER::Log("Client disconnected: " + (*iter)->Name(), LOGGER::COLOR::YELLOW);
           // Closes fd, deallocates the Socket*, and removes Socket* from clients
           ::close(fd);

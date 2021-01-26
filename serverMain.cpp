@@ -9,8 +9,11 @@
 
 #include <iostream>
 #include <string>
+#include <cstdint>
 
 #include "socket.h"
+
+#define BUF_LEN 1024
 
 void listen(ServerSocket& serverSocket)
 {
@@ -24,8 +27,12 @@ void listen(ServerSocket& serverSocket)
     client = serverSocket.recv(buffer); 
     LOGGER::Log(client->Name() + " ", LOGGER::COLOR::CYAN, false);
     LOGGER::Log(buffer);
-    client->sendLine("Recieved");
     client->sendLine(buffer);
+
+    for (int16_t i = 0; i < BUF_LEN; ++i)
+    {
+      buffer[i] = '\0';
+    }
   }
 }
 

@@ -14,8 +14,11 @@
 #include <unistd.h>
 
 #include <cstdlib>
+#include <cstdint>
 
 #include "logger.h"
+
+#define BUF_LEN 1024
 
 class Socket
 {
@@ -56,15 +59,10 @@ class ClientSocket : public Socket
 public:
   explicit ClientSocket(const std::string& address, int port);
 
-  Socket* recv(char* buffer);
+  void recv(char* buffer);
 
 };
 
-/*  when recv is called, the server will block with select until on of the
- *  sockets catches an interaction.
- *  otherwise, it will write the data to the output buffer and then return 
- *  the Socket object associated with the data
- */
 class ServerSocket : public Socket
 {
 

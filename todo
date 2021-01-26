@@ -15,6 +15,8 @@
 #
 # make loggers based on streams
 #
+# make it so that user doesn't have to clear buffers (handled by library)
+#
 # Tests:
 # - Make sure that when two clients send a message at the same time, they dont
 # get ignored
@@ -29,3 +31,5 @@
 #
 # Questions
 # ask about memory being released when client leaves
+#
+# https://stackoverflow.com/questions/16388510/evaluate-a-string-with-a-switch-in-c/16388594
