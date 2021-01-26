@@ -1,5 +1,4 @@
-notes
-todo
-*.o
-client
-server
+backup/
+bin/
+res/
+proof-of-concept/
