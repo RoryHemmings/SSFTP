@@ -2,3 +2,4 @@
 /bin
 /res
 /proof-of-concept
+*.o
