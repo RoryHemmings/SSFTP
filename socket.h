@@ -16,39 +16,38 @@
 #include <cstdlib>
 #include <cstdint>
 
+#include "sftp.h"
 #include "logger.h"
-
-#define BUF_LEN 1024
 
 class Socket
 {
-  
+
 public:
-  Socket();
-  Socket(int fd);
-  // Socket(const Socket&);
-  // operator=(const Socket& rhs);
+    Socket();
+    Socket(int fd);
+    // Socket(const Socket&);
+    // operator=(const Socket& rhs);
 
-  void send(size_t len, const char* data) const;
-  void sendLine(const std::string&) const;
+    void send(size_t len, const char* data) const;
+    void sendLine(const std::string&) const;
 
-  // Facilitates conversion from Socket to socket_fd
-  operator int() const;
+    // Facilitates conversion from Socket to socket_fd
+    operator int() const;
 
-  virtual ~Socket();
+    virtual ~Socket();
 
-  std::string Name() const;
+    std::string Name() const;
 
-  void close();
+    void close();
 
 protected:
-  // Socket file descriptor
-  int sock;
+    // Socket file descriptor
+    int sock;
 
-  // Name in form of <fd:ip> that can be used for debugging purposes
-  std::string name;
+    // Name in form of <fd:ip> that can be used for debugging purposes
+    std::string name;
 
-  // Close is defined in Socket
+    // Close is defined in Socket
 
 };
 
@@ -57,9 +56,9 @@ class ClientSocket : public Socket
 {
 
 public:
-  explicit ClientSocket(const std::string& address, int port);
+    explicit ClientSocket(const std::string& address, int port);
 
-  void recv(char* buffer);
+    void recv(char* buffer);
 
 };
 
@@ -67,17 +66,18 @@ class ServerSocket : public Socket
 {
 
 public:
-  explicit ServerSocket(const std::string& adress, int port);
+    explicit ServerSocket(const std::string& adress, int port, void (*onConnection)(Socket*));
 
-  Socket* recv(char* buffer);
+    Socket* recv(char* buffer);
 
-  /* Does not override Socket::close(), instead it calls it for every socket in
-   * the clients vector (before deallocating it) as well as its own socket.
-   */
-  void close();
+    /* Does not override Socket::close(), instead it calls it for every socket in
+     * the clients vector (before deallocating it) as well as its own socket.
+     */
+    void close();
 
 private:
-  std::vector<Socket*> clients;
+    std::vector<Socket*> clients;
+    void (*onConnection)(Socket*);
 
 };
 
