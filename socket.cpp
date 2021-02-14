@@ -77,10 +77,18 @@ ClientSocket::ClientSocket(const string& address, int port)
     }
 }
 
-void ClientSocket::recv(char* buffer)
+void ClientSocket::recv(char* buffer, size_t len) const
 {
     // Recieves info
-    read(sock, buffer, BUFLEN);
+    read(sock, buffer, len);
+}
+
+string ClientSocket::recvLine(size_t len) const
+{
+    char buffer[len];
+    read(sock, buffer, len);
+
+    return string(buffer);
 }
 
 ServerSocket::ServerSocket(const string& adress, int port, void (*onConnection)(Socket*))
@@ -122,7 +130,7 @@ ServerSocket::ServerSocket(const string& adress, int port, void (*onConnection)(
     cout << "Server is running: " << inet_ntoa(servAddr.sin_addr) << endl;
 }
 
-Socket* ServerSocket::recv(char* buffer)
+Socket* ServerSocket::recv(char* buffer, size_t len)
 {
     int fd, maxFd, activity, valread;
 
@@ -201,7 +209,7 @@ Socket* ServerSocket::recv(char* buffer)
             if (FD_ISSET(fd, &readfds))
             {
                 // Read from the socket
-                valread = read(fd, buffer, BUFLEN);
+                valread = read(fd, buffer, len);
 
                 if (valread == 0)
                 {
@@ -229,6 +237,19 @@ Socket* ServerSocket::recv(char* buffer)
             ++iter;
         }
     }
+}
+
+Socket* ServerSocket::recvLine(string& in, size_t len)
+{
+    Socket* client;
+    char buffer[len];
+
+    // Forward call to char* version of recv
+    client = recv(buffer, len);
+
+    // Sets in to everything up until the null byte
+    in = string(buffer);
+    return client;
 }
 
 void Socket::close()

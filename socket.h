@@ -1,5 +1,5 @@
-#ifndef DSFTP_SOCKET_H
-#define DSFTP_SOCKET_H
+#ifndef SFTP_SOCKET_H
+#define SFTP_SOCKET_H
 
 #include <iostream>
 #include <string>
@@ -58,7 +58,8 @@ class ClientSocket : public Socket
 public:
     explicit ClientSocket(const std::string& address, int port);
 
-    void recv(char* buffer);
+    void recv(char* buffer, size_t len=BUFLEN) const;
+    std::string recvLine(size_t len=BUFLEN) const;
 
 };
 
@@ -68,7 +69,8 @@ class ServerSocket : public Socket
 public:
     explicit ServerSocket(const std::string& adress, int port, void (*onConnection)(Socket*));
 
-    Socket* recv(char* buffer);
+    Socket* recv(char* buffer, size_t len=BUFLEN);
+    Socket* recvLine(std::string& in, size_t len=BUFLEN);
 
     /* Does not override Socket::close(), instead it calls it for every socket in
      * the clients vector (before deallocating it) as well as its own socket.

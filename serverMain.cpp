@@ -10,48 +10,52 @@
 #include <iostream>
 #include <string>
 #include <cstdint>
+#include <map>
 
 #include "sftp.h"
 #include "logger.h"
 #include "socket.h"
 #include "utils.h"
 
-size_t handleCommand(Socket* client, char* in, char* out)
+std::string handleCommand(const std::string& in)
 {
-  // COMPLETE TEST, DISCARD WHAT IS IN THIS FUNCTION RIGHT NOW
-  out = "+User-id valid";
-  return strlen(out) + 1;
+    std::vector<std::string> cmd = split(in);
+
+    switch (SFTP::resolveCommand(cmd[0]))
+    {
+        case SFTP::USER:
+            LOGGER::DebugLog("User");
+            break;
+        case SFTP::PASS:
+            LOGGER::DebugLog("Password");
+            break;
+    }
+
+    return "+success";
 }
 
 void listen(ServerSocket& serverSocket)
-{ 
+{
     Socket* client;
-    char in[BUFLEN];
-    char out[BUFLEN];
+    std::string in;
 
     while (true)
     {
         // Listens for activity on sockets
         // will automatically handle new clients before returning
-        client = serverSocket.recv(in);
+        client = serverSocket.recvLine(in);
+
         LOGGER::Log(client->Name() + " ", LOGGER::COLOR::CYAN, false);
         LOGGER::Log(in);
 
-        client->send(handleCommand(client, in, out), out);
-
-        clearBuffers(BUFLEN, in, out);
+        client->sendLine(handleCommand(in));
     }
 }
 
 void onConnection(Socket* client)
 {
     LOGGER::Log("Client " + client->Name() + " Established Connection", LOGGER::COLOR::GREEN);
-
-    int len;
-    char out[1024];
-
-    len = SFTP::createResponse(out, SFTP::SUCCESS, "established connection");
-    client->send(len, out);
+    client->sendLine(SFTP::createResponse(SFTP::SUCCESS, "established connection"));
 }
 
 int main(int argc, char** argv)
@@ -60,6 +64,6 @@ int main(int argc, char** argv)
     listen(serverSocket);
 
     serverSocket.close();
-
     return 0;
 }
+

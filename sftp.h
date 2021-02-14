@@ -4,9 +4,9 @@
 #define PORT 115
 #define BUFLEN 1024
 
-#include <cstdio>
-#include <cstdint>
 #include <cstdarg>
+#include <string>
+#include <map>
 
 /*struct Cmd
 {
@@ -34,10 +34,12 @@ enum COMMAND
 
 enum RESPONSE
 {
-  SUCCESS,
-  ERROR,
-  LOGGED_IN
+    SUCCESS,
+    ERROR,
+    LOGGED_IN
 };
+
+COMMAND resolveCommand(const std::string& cmd);
 
 /*
  * Both of these functions take an output buffer
@@ -46,10 +48,10 @@ enum RESPONSE
  *
  * Return length of message (strnlen + 1 to account for \0)
  */
-size_t createMessage(char* out, COMMAND cmd, int argc, ...);
-size_t createResponse(char* out, RESPONSE code, const char* message);
+std::string createCommand(COMMAND cmd, int argc, ...);
+std::string createResponse(RESPONSE code, const std::string& message);
 
-int16_t sftpLogin(const char* username, const char* password);
+int16_t sftpLogin(const std::string& username, const std::string& password);
 
 }
 

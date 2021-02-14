@@ -27,11 +27,11 @@ void error(int16_t code)
     {
     case -1:
         LOGGER::LogError("Connection Authentication Failed");
-        exit(code);
     case -2:
         LOGGER::LogError("Invalid user-id");
-        exit(code);
     }
+
+    exit(code);
 }
 
 /*  Takes server response and output buffer (will be sent to server)
@@ -56,14 +56,16 @@ int16_t parseCommand(const char* in, char* out)
     }
 }
 
-int16_t authenticateConnection(char* in, char* out, ClientSocket& sock, const char* username)
+int16_t authenticateConnection(ClientSocket& sock, const std::string& username)
 {
-    sock.send(SFTP::createMessage(out, SFTP::USER, 1, username), out);
-    sock.recv(in);
+    std::string response;
+    std::string pswd;
+
+    sock.sendLine(SFTP::createCommand(SFTP::USER, 1, username));
+    response = sock.recvLine();
 
     // Response code
-    char response = in[0];
-    switch (response)
+    switch (response[0])
     {
     case '!':
         // Account doesn't require password
@@ -77,43 +79,32 @@ int16_t authenticateConnection(char* in, char* out, ClientSocket& sock, const ch
         return -1;
     }
 
-    clearBuffers(BUFLEN, in, out);
-
-    std::string pswd;
     LOGGER::Log("Enter password for ", LOGGER::COLOR::MAGENTA, false);
     LOGGER::Log(username, LOGGER::COLOR::BLUE, false);
     LOGGER::Log(": ", LOGGER::COLOR::MAGENTA, false);
     getline(std::cin, pswd);
 
-    SFTP::createMessage(out, SFTP::PASS, 1, pswd.c_str());
-    LOGGER::DebugLog(out);
+    sock.sendLine(SFTP::createCommand(SFTP::PASS, 1, pswd));
+    LOGGER::DebugLog(sock.recvLine());
 }
 
 int main(int argc, char** argv)
 {
-    int16_t len;
-    char in[BUFLEN];
-    char out[BUFLEN];
+    std::string username = "sftp_user";
+    std::string in;
 
     ClientSocket sock("127.0.0.1", PORT);
 
-    sock.recv(in);
+    in = sock.recvLine();
     if (in[0] == '+')
-    {
         LOGGER::DebugLog("Connection Established");
-    }
     else
-    {
-        // Server didn't send welcome message
-        error(-1);
-    }
+        error(-1);  // Server sent invalid response
 
-    if (authenticateConnection(in, out, sock, "test_user") < 0)
-    {
-        // Invalid user-id
-        error(-2);
-    }
+    if (authenticateConnection(sock, username) < 0)
+        error(-2);  // Invalid user-id
 
+    /* 
     do
     {
         len = parseCommand(in, out);
@@ -131,6 +122,9 @@ int main(int argc, char** argv)
         clearBuffers(BUFLEN, in, out);
 
     } while(true);
+    */
+
+    sock.close();
 
     return 0;
 }

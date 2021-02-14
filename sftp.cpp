@@ -1,85 +1,107 @@
 #include <cstring>
-
+#include "logger.h"
 #include "sftp.h"
 
-size_t SFTP::createMessage(char* out, COMMAND sftp_cmd, int argc, ...)
+using namespace std;
+using namespace SFTP;
+
+SFTP::COMMAND SFTP::resolveCommand(const string& cmd)
 {
-  const char* cmd;
+    static const map<string, COMMAND> commands
+    {
+        { "USER", USER },
+        { "ACCT", ACCT },
+        { "PASS", PASS },
+        { "TYPE", TYPE },
+        { "LIST", LIST },
+        { "CDIR", CDIR },
+        { "KILL", KILL },
+        { "NAME", NAME },
+        { "DONE", DONE },
+        { "RETR", RETR },
+        { "STOR", STOR }
+    };
+
+    auto it = commands.find(cmd);
+    if (it != commands.end())
+        return it->second;
+    
+    // TODO figure out how to return safely
+    LOGGER::LogError("Invalid Protocol Command");
+    exit(1);
+}
+
+string SFTP::createCommand(COMMAND sftp_cmd, int argc, ...)
+{
+  string ret;
 
   switch (sftp_cmd)
   {
     case USER:
-      cmd = "USER";
+      ret = "USER";
       break;
     case ACCT:
-      cmd = "ACCT";
+      ret = "ACCT";
       break;
     case PASS:
-      cmd = "PASS";
+      ret = "PASS";
       break;
     case TYPE:
-      cmd = "TYPE";
+      ret = "TYPE";
       break;
     case LIST:
-      cmd = "LIST";
+      ret = "LIST";
       break;
     case CDIR:
-      cmd = "CDIR";
+      ret = "CDIR";
       break;
     case KILL:
-      cmd = "KILL";
+      ret = "KILL";
       break;
     case NAME:
-      cmd = "NAME";
+      ret = "NAME";
       break;
     case DONE:
-      cmd = "DONE";
+      ret = "DONE";
       break;
     case RETR:
-      cmd = "RETR";
+      ret = "RETR";
       break;
     case STOR:
-      cmd = "STOR";
+      ret = "STOR";
       break;
   }
-
-  strncpy(out, cmd, BUFLEN);
-  strncat(out, " ", BUFLEN);
 
   va_list argv;
   va_start(argv, argc);
 
   for (int i = 0; i < argc; i++)
   {
-    strncat(out, va_arg(argv, const char*), BUFLEN);
-
-    // NULL byte is always added on the end
-    strncat(out, " ", BUFLEN);
+    ret += " ";
+    ret += va_arg(argv, string);
   }
 
   va_end(argv);
-
-  return strlen(out) + 1;
+  return ret;
 }
 
-size_t SFTP::createResponse(char* out, RESPONSE code, const char* message)
+string SFTP::createResponse(RESPONSE code, const string& message)
 {
-  const char* response;
+  string ret;
+
   switch (code)
   {
     case SUCCESS:
-      response = "+";
+      ret = "+";
       break;
     case ERROR:
-      response = "-";
+      ret = "-";
       break;
     case LOGGED_IN:
-      response = "!";
+      ret = "!";
       break;
   }
 
-  strncpy(out, response, BUFLEN);
-  strncat(out, message, BUFLEN);
-
-  return strlen(out) + 1;
+  ret += message;
+  return ret;
 }
