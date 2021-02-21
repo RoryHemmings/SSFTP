@@ -10,8 +10,8 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
-#include <cstdlib>
 #include <cstdint>
+#include <vector>
 
 // To parse args
 #include <unistd.h>
@@ -21,23 +21,38 @@
 #include "socket.h"
 #include "utils.h"
 
-void error(int16_t code)
+/* Even though global variables are generally considered bad 
+ * practice in many situations, it is by far the most simple 
+ * and efficient way of doing things for this situation
+ *
+ * trust me I have tried several different workarounds
+ */
+char in[BUFLEN];
+char out[BUFLEN];
+
+void error(int8_t code)
 {
     switch (code)
     {
-    case -1:
-        LOGGER::LogError("Connection Authentication Failed");
-    case -2:
-        LOGGER::LogError("Invalid user-id");
+        case SFTP::MISC_ERROR:
+            LOGGER::LogError("Error Occured (error code 1)");
+            exit(code);
+        case SFTP::INVALID_COMMAND:
+            LOGGER::LogError("Invalid SFTP Command (error code 2)");
+            exit(code);
+        case SFTP::INVALID_USER:
+            LOGGER::LogError("Invalid username");
+            break;
+        case SFTP::INVALID_PASSWORD:
+            LOGGER::LogError("Incorrect password");
+            break;
     }
-
-    exit(code);
 }
 
 /*  Takes server response and output buffer (will be sent to server)
  *  returns length of the buffer
  */
-int16_t parseCommand(const char* in, char* out)
+int16_t parseCommand()
 {
     std::string input;
 
@@ -56,55 +71,56 @@ int16_t parseCommand(const char* in, char* out)
     }
 }
 
-int16_t authenticateConnection(ClientSocket& sock, const std::string& username)
+std::string authenticateConnection(ClientSocket& sock)
 {
-    std::string response;
-    std::string pswd;
+    clearBuffers(BUFLEN, in, out);
 
-    sock.sendLine(SFTP::createCommand(SFTP::USER, 1, username));
-    response = sock.recvLine();
+    std::string username;
+    std::string password;
 
-    // Response code
-    switch (response[0])
-    {
-    case '!':
-        // Account doesn't require password
-        LOGGER::DebugLog("Login Successful!");
-        return 0;
-    case '+':
-        // Follow through to get password from user
-        break;
-    case '-':
-        // Username is incorrect
-        return -1;
-    }
+    LOGGER::Log("Enter username for ", LOGGER::COLOR::MAGENTA, false);
+    LOGGER::Log(username, LOGGER::COLOR::CYAN, false);
+    LOGGER::Log(": ", LOGGER::COLOR::MAGENTA, false);
+    getline(std::cin, username);
 
     LOGGER::Log("Enter password for ", LOGGER::COLOR::MAGENTA, false);
-    LOGGER::Log(username, LOGGER::COLOR::BLUE, false);
+    LOGGER::Log(username, LOGGER::COLOR::CYAN, false);
     LOGGER::Log(": ", LOGGER::COLOR::MAGENTA, false);
-    getline(std::cin, pswd);
+    getline(std::cin, password);
 
-    sock.sendLine(SFTP::createCommand(SFTP::PASS, 1, pswd));
-    LOGGER::DebugLog(sock.recvLine());
+    // hexDump("UserBuffer", out, 100);
+    sock.send(SFTP::ccUser(out, username, password), out);
+    sock.recv(in);
+
+    if (in[0] == SFTP::FAILURE)
+    {
+        error(in[1]);
+        authenticateConnection(sock);
+    }
+
+    clearBuffers(BUFLEN, in, out);
+
+    return username;
 }
 
 int main(int argc, char** argv)
 {
-    std::string username = "sftp_user";
-    std::string in;
+    std::string username;
 
     ClientSocket sock("127.0.0.1", PORT);
 
-    in = sock.recvLine();
-    if (in[0] == '+')
+    sock.recv(in);
+    if (in[0] == SFTP::SUCCESS)
         LOGGER::DebugLog("Connection Established");
     else
-        error(-1);  // Server sent invalid response
+        error(in[1]);  // Server sent invalid response
 
-    if (authenticateConnection(sock, username) < 0)
-        error(-2);  // Invalid user-id
+    clearBuffers(BUFLEN, in, out);
 
-    /* 
+    username = authenticateConnection(sock);
+    std::cout << "Finished: " << username << std::endl;
+
+    /*
     do
     {
         len = parseCommand(in, out);

@@ -17,45 +17,52 @@
 #include "socket.h"
 #include "utils.h"
 
-std::string handleCommand(const std::string& in)
-{
-    std::vector<std::string> cmd = split(in);
+/* Even though global variables are generally considered bad 
+ * practice in many situations, it is by far the most simple 
+ * and efficient way of doing things for this situation
+ *
+ * trust me I have tried several different workarounds
+ */
+char in[BUFLEN];
+char out[BUFLEN];
 
-    switch (SFTP::resolveCommand(cmd[0]))
+// Returns of message length
+size_t handleCommand()
+{
+    switch (SFTP::resolveCommand(in[0]))
     {
         case SFTP::USER:
             LOGGER::DebugLog("User");
-            break;
-        case SFTP::PASS:
-            LOGGER::DebugLog("Password");
-            break;
+            // TODO actually check and add user to vector of ids (sockfds)
+            return SFTP::createSuccessResponse(out);
     }
-
-    return "+success";
+    
+    return SFTP::createFailureResponse(out, SFTP::INVALID_COMMAND);
 }
 
 void listen(ServerSocket& serverSocket)
 {
     Socket* client;
-    std::string in;
 
     while (true)
     {
         // Listens for activity on sockets
         // will automatically handle new clients before returning
-        client = serverSocket.recvLine(in);
+        client = serverSocket.recv(in);
 
         LOGGER::Log(client->Name() + " ", LOGGER::COLOR::CYAN, false);
         LOGGER::Log(in);
 
-        client->sendLine(handleCommand(in));
+        client->send(handleCommand(), out);
+        clearBuffers(BUFLEN, in, out);
     }
 }
 
 void onConnection(Socket* client)
 {
+    clearBuffer(BUFLEN, out);
     LOGGER::Log("Client " + client->Name() + " Established Connection", LOGGER::COLOR::GREEN);
-    client->sendLine(SFTP::createResponse(SFTP::SUCCESS, "established connection"));
+    client->send(SFTP::createSuccessResponse(out), out);
 }
 
 int main(int argc, char** argv)

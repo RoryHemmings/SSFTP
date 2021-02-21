@@ -14,5 +14,7 @@ void clearBuffers(size_t len, char* a, char* b);
 
 std::vector<std::string> split(const std::string& s);
 
+void hexDump(const char*, const void*, const int);
+
 #endif
 

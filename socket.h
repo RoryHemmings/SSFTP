@@ -15,6 +15,7 @@
 
 #include <cstdlib>
 #include <cstdint>
+#include <memory>
 
 #include "sftp.h"
 #include "logger.h"

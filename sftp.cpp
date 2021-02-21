@@ -1,28 +1,31 @@
 #include <cstring>
 #include "logger.h"
+#include "utils.h"
 #include "sftp.h"
 
 using namespace std;
 using namespace SFTP;
 
-SFTP::COMMAND SFTP::resolveCommand(const string& cmd)
+COMMAND SFTP::resolveCommand(const char cmd)
 {
-    static const map<string, COMMAND> commands
+    static const map<uint8_t, COMMAND> commands
     {
-        { "USER", USER },
-        { "ACCT", ACCT },
-        { "PASS", PASS },
-        { "TYPE", TYPE },
-        { "LIST", LIST },
-        { "CDIR", CDIR },
-        { "KILL", KILL },
-        { "NAME", NAME },
-        { "DONE", DONE },
-        { "RETR", RETR },
-        { "STOR", STOR }
+        { 0x01, USER },
+        { 0x02, ACCT },
+        { 0x03, PASS },
+        { 0x04, TYPE },
+        { 0x05, LIST },
+        { 0x06, CDIR },
+        { 0x07, KILL },
+        { 0x08, NAME },
+        { 0x09, DONE },
+        { 0x0a, RETR },
+        { 0x0b, STOR }
     };
 
-    auto it = commands.find(cmd);
+    uint8_t val = (uint8_t)cmd;
+
+    auto it = commands.find(val);
     if (it != commands.end())
         return it->second;
     
@@ -31,44 +34,126 @@ SFTP::COMMAND SFTP::resolveCommand(const string& cmd)
     exit(1);
 }
 
-string SFTP::createCommand(COMMAND sftp_cmd, int argc, ...)
+size_t SFTP::ccUser(char* out, const string& username, const string& password)
 {
-  string ret;
+  size_t len = 0;
+  uint16_t usernameLength, passwordLength;
+
+  clearBuffer(BUFLEN, out);
+
+  // Set command byte
+  out[len] = SFTP::USER;
+  len += 1;
+
+  /*
+   * Header
+   */
+  usernameLength = username.size();
+  if (usernameLength > 512) // Username exceeds max length
+    return -1;
+
+  // Set 2 username length bytes
+  memcpy(out+len, &usernameLength, 2);
+  len += 2;
+
+  passwordLength = password.size();
+  if (passwordLength > 512) // Password exceeds max length
+    return -2;
+
+  // Set 2 password length bytes
+  memcpy(out+len, &passwordLength, 2);
+  len += 2;
+
+  /*
+   * Data
+   */
+
+  // Set username bytes
+  memcpy(out+len, username.c_str(), usernameLength); // Intentionally leaves off null termination 
+  len += usernameLength;
+
+  // Set password bytes
+  memcpy(out+len, password.c_str(), passwordLength); // Intentionally leaves off null termination
+  len += passwordLength;
+
+  /*
+   * the buffer was initially cleared
+   * so null termination for full 
+   * command is already taken care of
+   */
+  len += 1; // Length still has to be increased to include the termination
+
+  if (len > BUFLEN) // Buffer overflow
+    return -3;
+
+  return len;
+}
+
+size_t SFTP::createSuccessResponse(char* out)
+{
+  clearBuffer(BUFLEN, out);
+
+  size_t len = 0;
+
+  // Response type
+  out[0] = SUCCESS;
+  len += 1;
+
+  // No data in this case
+
+  // Null termination
+  out[1] = '\0';
+  len += 1;
+
+  return len;
+}
+
+size_t SFTP::createFailureResponse(char* out, uint8_t code)
+{
+  clearBuffer(BUFLEN, out);
+
+  size_t len = 0;
+
+  out[0] = FAILURE;
+  len += 1;
+
+  out[1] = code;
+  len += 1;
+
+  out[2] = '\0';
+  len += 1;
+
+  return len;
+}
+
+/*
+size_t SFTP::createCommand(COMMAND sftp_cmd, char* out, int argc, ...)
+{
+  clearBuffer(out);
 
   switch (sftp_cmd)
   {
     case USER:
-      ret = "USER";
       break;
     case ACCT:
-      ret = "ACCT";
       break;
     case PASS:
-      ret = "PASS";
       break;
     case TYPE:
-      ret = "TYPE";
       break;
     case LIST:
-      ret = "LIST";
       break;
     case CDIR:
-      ret = "CDIR";
       break;
     case KILL:
-      ret = "KILL";
       break;
     case NAME:
-      ret = "NAME";
       break;
     case DONE:
-      ret = "DONE";
       break;
     case RETR:
-      ret = "RETR";
       break;
     case STOR:
-      ret = "STOR";
       break;
   }
 
@@ -82,26 +167,6 @@ string SFTP::createCommand(COMMAND sftp_cmd, int argc, ...)
   }
 
   va_end(argv);
-  return ret;
+  return 0;
 }
-
-string SFTP::createResponse(RESPONSE code, const string& message)
-{
-  string ret;
-
-  switch (code)
-  {
-    case SUCCESS:
-      ret = "+";
-      break;
-    case ERROR:
-      ret = "-";
-      break;
-    case LOGGED_IN:
-      ret = "!";
-      break;
-  }
-
-  ret += message;
-  return ret;
-}
+*/

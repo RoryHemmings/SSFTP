@@ -5,6 +5,7 @@
 #define BUFLEN 1024
 
 #include <cstdarg>
+#include <cstdint>
 #include <string>
 #include <map>
 
@@ -17,39 +18,52 @@
 namespace SFTP
 {
 
+// Commands along with their binary represenations (in hex form)
 enum COMMAND
 {
-    USER,
-    ACCT,
-    PASS,
-    TYPE,
-    LIST,
-    CDIR,
-    KILL,
-    NAME,
-    DONE,
-    RETR,
-    STOR
+    USER = 0x01, // 0000 0001
+    ACCT = 0x02, // 0000 0010
+    PASS = 0x03, // 0000 0011
+    TYPE = 0x04, // 0000 0100
+    LIST = 0x05, // 0000 0101
+    CDIR = 0x06, // 0000 0110
+    KILL = 0x07, // 0000 0111
+    NAME = 0x08, // 0000 1000
+    DONE = 0x09, // 0000 1001
+    RETR = 0x0a, // 0000 1010
+    STOR = 0x0b  // 0000 1011
 };
 
 enum RESPONSE
 {
-    SUCCESS,
-    ERROR,
-    LOGGED_IN
+    SUCCESS = 0x01,  // 0000 0001
+    FAILURE = 0x02,    // 0000 0010
 };
 
-COMMAND resolveCommand(const std::string& cmd);
+enum ERROR
+{
+    MISC_ERROR = 1,
+    INVALID_COMMAND = 2,
+    INVALID_USER = 3,
+    INVALID_PASSWORD = 4,
+};
+
+COMMAND resolveCommand(const char cmd);
 
 /*
- * Both of these functions take an output buffer
- * instead of returning a string because of issues
- * with managing memory
- *
- * Return length of message (strnlen + 1 to account for \0)
+ * Command Factories (used by client)
  */
-std::string createCommand(COMMAND cmd, int argc, ...);
-std::string createResponse(RESPONSE code, const std::string& message);
+size_t ccUser(char* out, const std::string& username, const std::string& password);
+
+/*
+ * Response Factories (used by server)
+ */
+
+/*
+ * Stock Response Factories (used by server)
+ */
+size_t createSuccessResponse(char* out);
+size_t createFailureResponse(char* out, uint8_t code);
 
 int16_t sftpLogin(const std::string& username, const std::string& password);
 
