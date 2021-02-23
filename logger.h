@@ -23,6 +23,7 @@ void Log(const std::string&);
 void Log(const std::string&, COLOR, bool newLine=true);
 void DebugLog(const std::string&);
 void LogError(const std::string&);
+void HexDump(const char*, const void*, const int);
 
 }
 

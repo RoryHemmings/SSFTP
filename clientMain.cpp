@@ -1,8 +1,6 @@
 /*
  *
  * DSFTP Client
- * Version 0.1
- *
  * Author Rory Hemmings
  *
  */

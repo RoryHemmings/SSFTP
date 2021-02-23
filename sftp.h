@@ -65,8 +65,6 @@ size_t ccUser(char* out, const std::string& username, const std::string& passwor
 size_t createSuccessResponse(char* out);
 size_t createFailureResponse(char* out, uint8_t code);
 
-int16_t sftpLogin(const std::string& username, const std::string& password);
-
 }
 
 #endif
