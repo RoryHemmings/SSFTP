@@ -91,8 +91,8 @@ string ClientSocket::recvLine(size_t len) const
     return string(buffer);
 }
 
-ServerSocket::ServerSocket(const string& adress, int port, void (*onConnection)(Socket*))
-    : Socket(), onConnection(onConnection)
+ServerSocket::ServerSocket(const string& adress, int port, void (*onConnect)(Socket*), void (*onDisconnect)(Socket*))
+    : Socket(), onConnect(onConnect), onDisconnect(onDisconnect)
 {
     struct sockaddr_in servAddr;
     int opt = 1;
@@ -190,7 +190,7 @@ Socket* ServerSocket::recv(char* buffer, size_t len)
                 Socket* client = new Socket(fd);
                 clients.push_back(client);
 
-                (*onConnection)(client);
+                (*onConnect)(client);
             }
             else
             {
@@ -213,6 +213,7 @@ Socket* ServerSocket::recv(char* buffer, size_t len)
 
                 if (valread == 0)
                 {
+                    (*onDisconnect)(*iter);
                     LOGGER::Log("Client disconnected: " + (*iter)->Name(), LOGGER::COLOR::YELLOW);
                     // Closes fd, deallocates the Socket*, and removes Socket* from clients
                     ::close(fd);

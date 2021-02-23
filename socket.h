@@ -68,7 +68,8 @@ class ServerSocket : public Socket
 {
 
 public:
-    explicit ServerSocket(const std::string& adress, int port, void (*onConnection)(Socket*));
+    explicit ServerSocket(const std::string& adress, int port,
+                          void (*onConnect)(Socket*), void (*onDisconnect)(Socket*));
 
     Socket* recv(char* buffer, size_t len=BUFLEN);
     Socket* recvLine(std::string& in, size_t len=BUFLEN);
@@ -80,7 +81,8 @@ public:
 
 private:
     std::vector<Socket*> clients;
-    void (*onConnection)(Socket*);
+    void (*onConnect)(Socket*);
+    void (*onDisconnect)(Socket*);
 
 };
 

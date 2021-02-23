@@ -118,17 +118,9 @@ int main(int argc, char** argv)
     username = authenticateConnection(sock);
     std::cout << "Finished: " << username << std::endl;
 
-    /*
     do
     {
-        len = parseCommand(in, out);
-        if (len < 1)
-        {
-            // Return value serves as error code if its negative
-            error(len);
-        }
-
-        sock.send(len, out);
+        sock.send(parseCommand(), out);
 
         sock.recv(in);
         LOGGER::Log(in, LOGGER::COLOR::CYAN);
@@ -136,7 +128,6 @@ int main(int argc, char** argv)
         clearBuffers(BUFLEN, in, out);
 
     } while(true);
-    */
 
     sock.close();
 

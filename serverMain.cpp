@@ -30,6 +30,9 @@
 char in[BUFLEN];
 char out[BUFLEN];
 
+// All currently logged in users
+std::map<Socket*, std::string> users;
+
 size_t checkPassword(Socket* client)
 {
     char *encrypted, *p;
@@ -58,8 +61,6 @@ size_t checkPassword(Socket* client)
     if (spwd != NULL)           // If there is a shadow password record 
         pwd->pw_passwd = spwd->sp_pwdp;     // Use the shadow password
 
-    // password = getpass("Password: ");
-
     encrypted = crypt(password.c_str(), pwd->pw_passwd);
 
     if (encrypted == NULL)
@@ -73,7 +74,9 @@ size_t checkPassword(Socket* client)
         return SFTP::createFailureResponse(out, SFTP::INVALID_PASSWORD);
 
     // Login Successful
+    users[client] = username;
     LOGGER::DebugLog(client->Name() + " Successfully Logged in user: " + username);
+
     return SFTP::createSuccessResponse(out);
 }
 
@@ -106,16 +109,26 @@ void listen(ServerSocket& serverSocket)
     }
 }
 
-void onConnection(Socket* client)
+void onConnect(Socket* client)
 {
     clearBuffer(BUFLEN, out);
     LOGGER::Log("Client " + client->Name() + " Established Connection", LOGGER::COLOR::GREEN);
     client->send(SFTP::createSuccessResponse(out), out);
 }
 
+void onDisconnect(Socket* client)
+{
+    auto user = users.find(client);
+    if (user != users.end())
+        users.erase(user);
+    
+    LOGGER::Log("Client disconnected: " + client->Name(), LOGGER::COLOR::YELLOW);
+}
+
+
 int main(int argc, char** argv)
 {
-    ServerSocket serverSocket("127.0.0.1", PORT, &onConnection);
+    ServerSocket serverSocket("127.0.0.1", PORT, &onConnect, &onDisconnect);
     listen(serverSocket);
 
     serverSocket.close();
