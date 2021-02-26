@@ -22,16 +22,14 @@ namespace SFTP
 enum COMMAND
 {
     USER = 0x01, // 0000 0001
-    ACCT = 0x02, // 0000 0010
-    PASS = 0x03, // 0000 0011
-    TYPE = 0x04, // 0000 0100
-    LIST = 0x05, // 0000 0101
-    CDIR = 0x06, // 0000 0110
-    KILL = 0x07, // 0000 0111
-    NAME = 0x08, // 0000 1000
-    DONE = 0x09, // 0000 1001
-    RETR = 0x0a, // 0000 1010
-    STOR = 0x0b  // 0000 1011
+    PRWD = 0x02, // 0000 0010
+    LIST = 0x03, // 0000 0011
+    CDIR = 0x04, // 0000 0100
+    KILL = 0x05, // 0000 0101
+    NAME = 0x06, // 0000 0110
+    DONE = 0x07, // 0000 0111
+    RETR = 0x08, // 0000 1000
+    STOR = 0x09, // 0000 1001
 };
 
 enum RESPONSE
@@ -40,12 +38,13 @@ enum RESPONSE
     FAILURE = 0x02,    // 0000 0010
 };
 
-enum ERROR
+enum SFTP_ERROR
 {
     MISC_ERROR = 1,
     INVALID_COMMAND = 2,
     INVALID_USER = 3,
     INVALID_PASSWORD = 4,
+    NOT_LOGGED_IN = 5,
 };
 
 COMMAND resolveCommand(const char cmd);
@@ -54,10 +53,13 @@ COMMAND resolveCommand(const char cmd);
  * Command Factories (used by client)
  */
 size_t ccUser(char* out, const std::string& username, const std::string& password);
+size_t ccPwd(char* out);
 
 /*
  * Response Factories (used by server)
  */
+
+size_t crPwd(char* out, const std::string& path);
 
 /*
  * Stock Response Factories (used by server)

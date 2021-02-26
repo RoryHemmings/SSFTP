@@ -11,16 +11,14 @@ COMMAND SFTP::resolveCommand(const char cmd)
     static const map<uint8_t, COMMAND> commands
     {
         { 0x01, USER },
-        { 0x02, ACCT },
-        { 0x03, PASS },
-        { 0x04, TYPE },
-        { 0x05, LIST },
-        { 0x06, CDIR },
-        { 0x07, KILL },
-        { 0x08, NAME },
-        { 0x09, DONE },
-        { 0x0a, RETR },
-        { 0x0b, STOR }
+        { 0x02, PRWD },
+        { 0x03, LIST },
+        { 0x04, CDIR },
+        { 0x05, KILL },
+        { 0x06, NAME },
+        { 0x07, DONE },
+        { 0x08, RETR },
+        { 0x09, STOR },
     };
 
     uint8_t val = (uint8_t)cmd;
@@ -89,6 +87,35 @@ size_t SFTP::ccUser(char* out, const string& username, const string& password)
   return len;
 }
 
+size_t SFTP::ccPwd(char* out)
+{
+  clearBuffer(BUFLEN, out);
+  size_t len = 0;
+  
+  out[0] = PRWD;
+  len += 1;
+
+  return len;
+}
+
+size_t SFTP::crPwd(char* out, const string& path)
+{
+  clearBuffer(BUFLEN, out);  
+  size_t len = 0;
+
+  out[SUCCESS];
+  len += 1;
+
+  strcpy(out+len, path.c_str());
+  len += path.size();
+
+  /* strcpy automatically adds null termination
+     however str::size() doesn't actually include it */
+  len += 1;
+
+  return len;
+}
+
 size_t SFTP::createSuccessResponse(char* out)
 {
   clearBuffer(BUFLEN, out);
@@ -126,47 +153,4 @@ size_t SFTP::createFailureResponse(char* out, uint8_t code)
   return len;
 }
 
-/*
-size_t SFTP::createCommand(COMMAND sftp_cmd, char* out, int argc, ...)
-{
-  clearBuffer(out);
 
-  switch (sftp_cmd)
-  {
-    case USER:
-      break;
-    case ACCT:
-      break;
-    case PASS:
-      break;
-    case TYPE:
-      break;
-    case LIST:
-      break;
-    case CDIR:
-      break;
-    case KILL:
-      break;
-    case NAME:
-      break;
-    case DONE:
-      break;
-    case RETR:
-      break;
-    case STOR:
-      break;
-  }
-
-  va_list argv;
-  va_start(argv, argc);
-
-  for (int i = 0; i < argc; i++)
-  {
-    ret += " ";
-    ret += va_arg(argv, string);
-  }
-
-  va_end(argv);
-  return 0;
-}
-*/

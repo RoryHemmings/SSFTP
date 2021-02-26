@@ -21,8 +21,8 @@
 #include "socket.h"
 #include "utils.h"
 
-/* Even though global variables are generally considered bad
- * practice in many situations, it is by far the most simple
+/* Even though global variables are generally considered bad 
+ * practice in many situations, it is by far the most simple 
  * and efficient way of doing things for this situation
  *
  * trust me I have tried several different workarounds
@@ -30,22 +30,23 @@
 char in[BUFLEN];
 char out[BUFLEN];
 
+// TODO include current_path, username, and home dir
 struct User
 {
     std::string username;
     std::string homeDir;
-    std::string currentDir;
+    std::string currentPath;
 };
 
 // All currently logged in users
-std::map<Socket*, User> users;
+std::map<Socket*, std::string> users;
 
 size_t checkPassword(Socket* client)
 {
     char *encrypted, *p;
     struct passwd *pwd;
     struct spwd *spwd;
-    uint16_t usernameLength, passwordLength;
+    uint16_t usernameLength, passwordLength; 
 
     // Get username and password lengths (2 bytes long)
     memcpy(&usernameLength, in+1, 2);
@@ -58,6 +59,8 @@ size_t checkPassword(Socket* client)
     if (pwd == NULL)
         return SFTP::createFailureResponse(out, SFTP::INVALID_USER);
 
+    std::cout << pwd->pw_dir << std::endl;
+
     spwd = getspnam(username.c_str());
     if (spwd == NULL && errno == EACCES)
     {
@@ -65,7 +68,7 @@ size_t checkPassword(Socket* client)
         return SFTP::createFailureResponse(out, SFTP::MISC_ERROR);
     }
 
-    if (spwd != NULL)           // If there is a shadow password record
+    if (spwd != NULL)           // If there is a shadow password record 
         pwd->pw_passwd = spwd->sp_pwdp;     // Use the shadow password
 
     encrypted = crypt(password.c_str(), pwd->pw_passwd);
@@ -81,35 +84,23 @@ size_t checkPassword(Socket* client)
         return SFTP::createFailureResponse(out, SFTP::INVALID_PASSWORD);
 
     // Login Successful
-    users[client] = { username, pwd->pw_dir, pwd->pw_dir };
+    users[client] = { username, pwd->pwd_dir, pwd->pwd_dir };
     LOGGER::DebugLog(client->Name() + " Successfully Logged in user: " + username);
 
     return SFTP::createSuccessResponse(out);
 }
 
-size_t printWorkingDirectory(Socket* client)
-{
-    auto iter = users.find(client);
-    if (iter == users.end())
-        return SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN);
-
-    return SFTP::crPwd(out, iter->second.currentDir);
-}
 
 // Returns of message length
 size_t handleCommand(Socket* client)
 {
     switch (SFTP::resolveCommand(in[0]))
     {
-    case SFTP::USER:
-        // Will modify the out buffer and return length
-        return checkPassword(client); 
-    case SFTP::PRWD:
-        // returns length of out buffer
-        return printWorkingDirectory(client);
-
+        case SFTP::USER:
+            // TODO actually check and add user to vector of ids (sockfds)
+            return checkPassword(client); // Will modify the out buffer and return length
     }
-
+    
     return SFTP::createFailureResponse(out, SFTP::INVALID_COMMAND);
 }
 
@@ -123,16 +114,6 @@ void listen(ServerSocket& serverSocket)
         // will automatically handle new clients before returning
         client = serverSocket.recv(in);
         client->send(handleCommand(client), out);
-
-        /*
-        for (auto i = users.begin(); i != users.end(); ++i)
-        {
-            std::cout << i->first->Name() << std::endl;
-            std::cout << i->second.username << std::endl;
-            std::cout << i->second.currentDir << std::endl;
-            std::cout << i->second.homeDir << std::endl;
-        }
-        */
 
         clearBuffers(BUFLEN, in, out);
     }
@@ -150,7 +131,7 @@ void onDisconnect(Socket* client)
     auto user = users.find(client);
     if (user != users.end())
         users.erase(user);
-
+    
     LOGGER::Log("Client disconnected: " + client->Name(), LOGGER::COLOR::YELLOW);
 }
 
