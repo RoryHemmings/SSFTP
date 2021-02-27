@@ -214,7 +214,7 @@ Socket* ServerSocket::recv(char* buffer, size_t len)
                 if (valread == 0)
                 {
                     (*onDisconnect)(*iter);
-                    LOGGER::Log("Client disconnected: " + (*iter)->Name(), LOGGER::COLOR::YELLOW);
+                    // LOGGER::Log("Client disconnected: " + (*iter)->Name(), LOGGER::COLOR::YELLOW);
                     // Closes fd, deallocates the Socket*, and removes Socket* from clients
                     ::close(fd);
                     delete *iter;

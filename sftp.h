@@ -45,6 +45,7 @@ enum SFTP_ERROR
     INVALID_USER = 3,
     INVALID_PASSWORD = 4,
     NOT_LOGGED_IN = 5,
+    INVALID_RESPONSE = 6
 };
 
 COMMAND resolveCommand(const char cmd);

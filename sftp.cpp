@@ -103,7 +103,7 @@ size_t SFTP::crPwd(char* out, const string& path)
   clearBuffer(BUFLEN, out);  
   size_t len = 0;
 
-  out[SUCCESS];
+  out[0] = SUCCESS;
   len += 1;
 
   strcpy(out+len, path.c_str());

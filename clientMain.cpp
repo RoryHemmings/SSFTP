@@ -39,6 +39,7 @@ enum L_COMMAND
     L_PWD,
     L_CDIR,
     L_MKDIR,
+    L_EXIT,
     INVALID
 };
 
@@ -66,6 +67,15 @@ void error(int8_t code)
     case L_INVALID_COMMAND:
         LOGGER::LogError("Invalid Command");
         break;
+    case SFTP::INVALID_RESPONSE:
+        LOGGER::LogError("Server responsed with invalid response");
+        break;
+    case SFTP::NOT_LOGGED_IN:
+        LOGGER::LogError("Not Logged In");
+        exit(code);
+    default:
+        LOGGER::LogError("Unkown Error");
+        LOGGER::LogError("Code: " + std::to_string(code));
     }
 }
 
@@ -76,13 +86,14 @@ L_COMMAND resolveCommand(const std::string& cmd)
         { "pwd", L_PWD },
         { "ls", L_LS },
         { "cd", L_CDIR },
-        { "mkdir", L_MKDIR }
+        { "mkdir", L_MKDIR },
+        { "exit", L_EXIT }
     };
 
     std::string command = cmd;
     std::transform(command.begin(), command.end(), command.begin(), tolower);
 
-    auto it = cmds.find(cmd);
+    auto it = cmds.find(command);
     if (it != cmds.end())
         return it->second;
 
@@ -124,8 +135,17 @@ std::string authenticateConnection(ClientSocket& sock)
 
 int16_t parsePwd()
 {
-  // TODO actually parse command and add exit command
-  std::cout << "parse" << std::endl; 
+    if (in[0] == SFTP::SUCCESS)
+    {
+        std::string p(in+1);
+        LOGGER::Log(p);
+    }
+    else if (in[0] = SFTP::FAILURE)
+        error(in[1]);
+    else
+        error(SFTP::INVALID_RESPONSE);
+
+    return 0;
 }
 
 int main(int argc, char** argv)
@@ -167,12 +187,15 @@ int main(int argc, char** argv)
             break;
         case L_MKDIR:
             break;
+        case L_EXIT:
+            LOGGER::Log("bye");
+            exit(0);
         case INVALID:
             err = L_INVALID_COMMAND;
             break;
         }
 
-        if (err <= 0)
+        if (err < 0)
         {
             error(err);
         }
