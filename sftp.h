@@ -45,7 +45,8 @@ enum SFTP_ERROR
     INVALID_USER = 3,
     INVALID_PASSWORD = 4,
     NOT_LOGGED_IN = 5,
-    INVALID_RESPONSE = 6
+    INVALID_RESPONSE = 6,
+    COMMAND_EXECUTION_FAILED = 7
 };
 
 COMMAND resolveCommand(const char cmd);
@@ -55,12 +56,14 @@ COMMAND resolveCommand(const char cmd);
  */
 size_t ccUser(char* out, const std::string& username, const std::string& password);
 size_t ccPwd(char* out);
+size_t ccLs(char* out);
 
 /*
  * Response Factories (used by server)
  */
 
-size_t crPwd(char* out, const std::string& path);
+size_t crPwd(char* out, const std::string& workingDir);
+size_t crLs(char* out, const std::string& data);
 
 /*
  * Stock Response Factories (used by server)

@@ -30,9 +30,6 @@
 char in[BUFLEN];
 char out[BUFLEN];
 
-// TODO resolve command
-// Same names but with L prefix
-
 enum L_COMMAND
 {
     L_LS,
@@ -48,6 +45,7 @@ enum L_ERROR
     L_INVALID_COMMAND = -1
 };
 
+/* Positive codes are remote and negative errors are local */
 void error(int8_t code)
 {
     switch (code)
@@ -64,15 +62,15 @@ void error(int8_t code)
     case SFTP::INVALID_PASSWORD:
         LOGGER::LogError("Incorrect password");
         break;
-    case L_INVALID_COMMAND:
-        LOGGER::LogError("Invalid Command");
-        break;
     case SFTP::INVALID_RESPONSE:
         LOGGER::LogError("Server responsed with invalid response");
         break;
     case SFTP::NOT_LOGGED_IN:
         LOGGER::LogError("Not Logged In");
         exit(code);
+    case L_INVALID_COMMAND:
+        LOGGER::LogError("Invalid Command");
+        break;
     default:
         LOGGER::LogError("Unkown Error");
         LOGGER::LogError("Code: " + std::to_string(code));
@@ -133,18 +131,47 @@ std::string authenticateConnection(ClientSocket& sock)
     return username;
 }
 
-int16_t parsePwd()
+/* Returns true if success and false if failure */
+bool checkStatus()
 {
     if (in[0] == SFTP::SUCCESS)
+    {
+        return true;
+    }
+    else if (in[0] == SFTP::FAILURE)
+    {
+        error(in[1]);
+        return false;
+    }
+    else
+    {
+        error(SFTP::INVALID_RESPONSE);
+        return false;
+    }
+}
+
+int16_t parsePwd()
+{
+    if (checkStatus())
+    {
+        // in+1 because in+0 is response code
+        std::string p(in+1);
+        LOGGER::Log(p);
+    }
+
+    // No local error
+    return 0;
+}
+
+int16_t parseLs()
+{
+    if (checkStatus())
     {
         std::string p(in+1);
         LOGGER::Log(p);
     }
-    else if (in[0] = SFTP::FAILURE)
-        error(in[1]);
-    else
-        error(SFTP::INVALID_RESPONSE);
 
+    // No local error
     return 0;
 }
 
@@ -177,11 +204,14 @@ int main(int argc, char** argv)
         switch (resolveCommand(cmd[0]))
         {
         case L_PWD:
-            len = SFTP::ccPwd(out);
-            sock.send(len, out);
+            sock.send(SFTP::ccPwd(out), out);
             sock.recv(in);
             err = parsePwd();
+            break;
         case L_LS:
+            sock.send(SFTP::ccLs(out), out);
+            sock.recv(in);
+            err = parseLs();
             break;
         case L_CDIR:
             break;

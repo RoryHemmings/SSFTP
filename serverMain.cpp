@@ -8,6 +8,7 @@
 #include <iostream>
 #include <string>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <map>
 
@@ -87,13 +88,62 @@ size_t checkPassword(Socket* client)
     return SFTP::createSuccessResponse(out);
 }
 
-size_t printWorkingDirectory(Socket* client)
+std::string exec(const std::string& command)
+{
+    char buffer[128];
+    std::string ret = "";
+    FILE* pipe;
+
+    pipe = popen(command.c_str(), "r");
+    if (!pipe)
+        return "";
+    try
+    {
+        while (fgets(buffer, sizeof buffer, pipe) != NULL)
+        {
+            ret += buffer;
+        }
+    }
+    catch (...)
+    {
+        pclose(pipe);
+        return "";
+    }
+
+    pclose(pipe);
+    return ret;
+}
+
+User* getUserByClient(Socket* client)
 {
     auto iter = users.find(client);
     if (iter == users.end())
+        return NULL;
+
+    return &(iter->second);
+}
+
+size_t printWorkingDirectory(Socket* client)
+{
+    User* user = getUserByClient(client);
+    if (user == NULL)
         return SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN);
 
-    return SFTP::crPwd(out, iter->second.currentDir);
+    return SFTP::crPwd(out, user->currentDir);
+}
+
+size_t listDirectory(Socket* client)
+{
+    // TODO figure out how to send whole command if it goes over a buffer limit
+    User* user = getUserByClient(client);
+    if (user == NULL)
+        return SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN);
+
+    std::string ret = exec("ls -la " + user->currentDir);
+    if (ret.size() == 0)
+        return SFTP::createFailureResponse(out, SFTP::COMMAND_EXECUTION_FAILED);
+
+    return SFTP::crLs(out, ret);
 }
 
 // Returns of message length
@@ -105,8 +155,11 @@ size_t handleCommand(Socket* client)
         // Will modify the out buffer and return length
         return checkPassword(client); 
     case SFTP::PRWD:
-        // returns length of out buffer
+        // Returns length of output buffer
         return printWorkingDirectory(client);
+    case SFTP::LIST:
+        // Returns length of output buffer
+        return listDirectory(client);
 
     }
 
