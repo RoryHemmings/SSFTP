@@ -12,6 +12,7 @@
 #include <locale>
 #include <map>
 #include <vector>
+#include <cmath>
 
 // To parse args
 #include <unistd.h>
@@ -68,6 +69,9 @@ void error(int8_t code)
     case SFTP::NOT_LOGGED_IN:
         LOGGER::LogError("Not Logged In");
         exit(code);
+    case SFTP::COMMAND_EXECUTION_FAILED:
+        LOGGER::LogError("Failed to execute command");
+        break;
     case L_INVALID_COMMAND:
         LOGGER::LogError("Invalid Command");
         break;
@@ -150,29 +154,51 @@ bool checkStatus()
     }
 }
 
-int16_t parsePwd()
+void parsePwd(ClientSocket& sock)
 {
+    sock.recv(in);
     if (checkStatus())
     {
         // in+1 because in+0 is response code
         std::string p(in+1);
         LOGGER::Log(p);
     }
-
-    // No local error
-    return 0;
+    else 
+    {
+        // Error was already handled by checkStatus()
+        return;
+    }
 }
 
-int16_t parseLs()
+void parseLs(ClientSocket& sock)
 {
-    if (checkStatus())
-    {
-        std::string p(in+1);
-        LOGGER::Log(p);
-    }
+    std::string output = "";
+    uint32_t index, end;
 
-    // No local error
-    return 0;
+    do
+    {
+        sock.recv(in);
+
+        if (checkStatus()) // Handles errors
+        {
+            // Get the two uint32_t values: index and end
+            memcpy(&index, in+1, 4);
+            memcpy(&end, in+5, 4);
+
+            // Append output to output string
+            output += std::string(in+9);
+
+            clearBuffers(BUFLEN, in, out);
+        }
+        else 
+        {
+            // Error was already handled by checkStatus()
+            return;
+        }
+    }
+    while (index < end);
+
+    LOGGER::Log(output, LOGGER::WHITE, false);
 }
 
 int main(int argc, char** argv)
@@ -191,7 +217,6 @@ int main(int argc, char** argv)
 
     std::string input;
     size_t len = 0;
-    int16_t err;
     do
     {
         clearBuffers(BUFLEN, in, out);
@@ -205,13 +230,11 @@ int main(int argc, char** argv)
         {
         case L_PWD:
             sock.send(SFTP::ccPwd(out), out);
-            sock.recv(in);
-            err = parsePwd();
+            parsePwd(sock);
             break;
         case L_LS:
             sock.send(SFTP::ccLs(out), out);
-            sock.recv(in);
-            err = parseLs();
+            parseLs(sock);
             break;
         case L_CDIR:
             break;
@@ -221,15 +244,9 @@ int main(int argc, char** argv)
             LOGGER::Log("bye");
             exit(0);
         case INVALID:
-            err = L_INVALID_COMMAND;
+            error(L_INVALID_COMMAND);
             break;
         }
-
-        if (err < 0)
-        {
-            error(err);
-        }
-
     } while(true);
 
     sock.close();

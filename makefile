@@ -12,6 +12,6 @@ DEPS = sftp.h socket.h logger.h utils.h
 
 sftp: sftp.o socket.o logger.o utils.o clientMain.o serverMain.o
 	$(CC) -o client sftp.o clientMain.o socket.o logger.o utils.o
-	$(CC) -o server sftp.o serverMain.o socket.o logger.o utils.o -lcrypt
+	$(CC) -o server sftp.o serverMain.o socket.o logger.o utils.o -lcrypt -pthread
 
 

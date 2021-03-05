@@ -137,7 +137,7 @@ size_t SFTP::crPwd(char* out, const string& currentDir)
     return len;
 }
 
-size_t SFTP::crLs(char* out, const string& data)
+size_t SFTP::crLs(char* out, const string& data, uint32_t index, uint32_t end)
 {
     clearBuffer(BUFLEN, out);
     size_t len = 0;
@@ -145,8 +145,14 @@ size_t SFTP::crLs(char* out, const string& data)
     out[0] = SUCCESS;
     len += 1;
 
+    memcpy(out+len, &index, 4);
+    len += 4;
+
+    memcpy(out+len, &end, 4);
+    len += 4;
+
     strncpy(out+len, data.c_str(), BUFLEN);  
-    len += std::min(data.size(), (size_t)(BUFLEN - 2)); // Max buffer length minus header and termination
+    len += std::min(data.size(), (size_t)(BUFLEN - 10)); // Max buffer length minus header and termination
 
     out[len] = '\0';
     len += 1;

@@ -46,7 +46,8 @@ enum SFTP_ERROR
     INVALID_PASSWORD = 4,
     NOT_LOGGED_IN = 5,
     INVALID_RESPONSE = 6,
-    COMMAND_EXECUTION_FAILED = 7
+    INVALID_CLIENT_RESPONSE = 7,
+    COMMAND_EXECUTION_FAILED = 8
 };
 
 COMMAND resolveCommand(const char cmd);
@@ -63,7 +64,7 @@ size_t ccLs(char* out);
  */
 
 size_t crPwd(char* out, const std::string& workingDir);
-size_t crLs(char* out, const std::string& data);
+size_t crLs(char* out, const std::string& data, uint32_t index, uint32_t end);
 
 /*
  * Stock Response Factories (used by server)

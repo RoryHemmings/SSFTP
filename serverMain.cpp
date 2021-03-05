@@ -10,7 +10,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <future>
 #include <map>
+#include <cmath>
 
 #include <unistd.h>
 #include <limits.h>
@@ -70,7 +72,6 @@ size_t checkPassword(Socket* client)
         pwd->pw_passwd = spwd->sp_pwdp;     // Use the shadow password
 
     encrypted = crypt(password.c_str(), pwd->pw_passwd);
-
     if (encrypted == NULL)
     {
         LOGGER::LogError("crpyt() failed");
@@ -123,6 +124,14 @@ User* getUserByClient(Socket* client)
     return &(iter->second);
 }
 
+bool checkStatus()
+{
+    if (in[0] == SFTP::SUCCESS)
+        return true;
+
+    return false;
+}
+
 size_t printWorkingDirectory(Socket* client)
 {
     User* user = getUserByClient(client);
@@ -132,35 +141,56 @@ size_t printWorkingDirectory(Socket* client)
     return SFTP::crPwd(out, user->currentDir);
 }
 
-size_t listDirectory(Socket* client)
+void listDirectory(Socket* client)
 {
-    // TODO figure out how to send whole command if it goes over a buffer limit
+    // Temporary buffers so that the async buffer doesn't share with the sync one
+    char tempIn[BUFLEN];
+    char tempOut[BUFLEN];
+
     User* user = getUserByClient(client);
     if (user == NULL)
-        return SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN);
+    {
+        client->send(SFTP::createFailureResponse(tempOut, SFTP::NOT_LOGGED_IN), tempOut);
+        return;
+    }
 
     std::string ret = exec("ls -la " + user->currentDir);
     if (ret.size() == 0)
-        return SFTP::createFailureResponse(out, SFTP::COMMAND_EXECUTION_FAILED);
+    {
+        client->send(SFTP::createFailureResponse(tempOut, SFTP::COMMAND_EXECUTION_FAILED), tempOut);
+        return;
+    }
 
-    return SFTP::crLs(out, ret);
+    size_t maxlen = BUFLEN - 10; // max number of data bytes allowed in the buffer (9 header bytes and 1 null termination)
+    uint32_t end = floor(ret.size() / maxlen); // Will be one less than total number, which means that it is the final index
+
+    int i = 0;
+    while (i < ret.size())
+    {
+        client->send(SFTP::crLs(tempOut, ret.substr(i, maxlen), floor(i / maxlen), end), tempOut);
+        i += maxlen;
+
+        clearBuffer(BUFLEN, tempIn);
+    }
 }
 
 // Returns of message length
 size_t handleCommand(Socket* client)
 {
+    // prevents async from going out of scope and blocking
+    static std::future<void> temp;
+
     switch (SFTP::resolveCommand(in[0]))
     {
-    case SFTP::USER:
-        // Will modify the out buffer and return length
+    case SFTP::USER: // sync
+        // Returns length of output buffer
         return checkPassword(client); 
-    case SFTP::PRWD:
+    case SFTP::PRWD: // sync
         // Returns length of output buffer
         return printWorkingDirectory(client);
-    case SFTP::LIST:
-        // Returns length of output buffer
-        return listDirectory(client);
-
+    case SFTP::LIST: // async
+        temp = std::async(std::launch::async, &listDirectory, client);
+        return 0;
     }
 
     return SFTP::createFailureResponse(out, SFTP::INVALID_COMMAND);
@@ -169,25 +199,30 @@ size_t handleCommand(Socket* client)
 void listen(ServerSocket& serverSocket)
 {
     Socket* client;
+    size_t len = 0;
 
     while (true)
     {
         // Listens for activity on sockets
         // will automatically handle new clients before returning
         client = serverSocket.recv(in);
-        client->send(handleCommand(client), out);
 
-        /*
-        for (auto i = users.begin(); i != users.end(); ++i)
-        {
-            std::cout << i->first->Name() << std::endl;
-            std::cout << i->second.username << std::endl;
-            std::cout << i->second.currentDir << std::endl;
-            std::cout << i->second.homeDir << std::endl;
-        }
-        */
+        /* To handle communications that take more than one 
+         * stage, I will use asynchronous functions whenever a
+         * mutlti stage communication takes place (ie. file transfer
+         * or other long command)
+         *
+         * if handleCommand() returns 0, then it should
+         * just skip over the send command
+         */
 
-        clearBuffers(BUFLEN, in, out);
+        len = handleCommand(client);
+
+        /* if request was synchronous */
+        if (len > 0)
+            client->send(len, out);
+
+       clearBuffers(BUFLEN, in, out);
     }
 }
 
