@@ -107,9 +107,10 @@ std::string authenticateConnection(ClientSocket& sock)
 {
     clearBuffers(BUFLEN, in, out);
 
-    std::string username;
-    std::string password;
+    std::string username = "rory";
+    std::string password = "kalikali";
 
+    /*
     LOGGER::Log("Enter username for ", LOGGER::COLOR::MAGENTA, false);
     LOGGER::Log(username, LOGGER::COLOR::CYAN, false);
     LOGGER::Log(": ", LOGGER::COLOR::MAGENTA, false);
@@ -119,6 +120,7 @@ std::string authenticateConnection(ClientSocket& sock)
     LOGGER::Log(username, LOGGER::COLOR::CYAN, false);
     LOGGER::Log(": ", LOGGER::COLOR::MAGENTA, false);
     getline(std::cin, password);
+    */
 
     // hexDump("UserBuffer", out, 100);
     sock.send(SFTP::ccUser(out, username, password), out);
@@ -201,6 +203,22 @@ void parseLs(ClientSocket& sock)
     LOGGER::Log(output, LOGGER::WHITE, false);
 }
 
+void parseCd(ClientSocket& sock)
+{
+    sock.recv(in);
+    if (checkStatus())
+    {
+        // TODO in the future I want to change the path string behind the >>>
+        std::string newPath(in+1);
+        LOGGER::Log("Changed Directory: " + newPath);
+    }
+    else 
+    {
+        // Error was already handled by checkStatus()
+        return;
+    }
+}
+
 int main(int argc, char** argv)
 {
     std::string username;
@@ -237,6 +255,9 @@ int main(int argc, char** argv)
             parseLs(sock);
             break;
         case L_CDIR:
+            // TODO create command parameter system client side
+            sock.send(SFTP::ccCd(out, "next"), out);
+            parseCd(sock);
             break;
         case L_MKDIR:
             break;

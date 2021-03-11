@@ -118,6 +118,25 @@ size_t SFTP::ccLs(char* out)
     return len;
 }
 
+size_t SFTP::ccCd(char* out, const string& path)
+{
+    clearBuffer(BUFLEN, out);
+    size_t len = 0;
+
+    out[0] = CDIR;
+    len += 1;
+
+    strncpy(out+len, path.c_str(), BUFLEN);
+    len += min(path.size(), (size_t) BUFLEN);
+
+    /* ensure that null termination is added to
+       prevent buffer overflows */
+    out[len] = '\0';
+    len += 1;
+    
+    return len;
+}
+
 size_t SFTP::crPwd(char* out, const string& currentDir)
 {
     clearBuffer(BUFLEN, out);
@@ -127,7 +146,7 @@ size_t SFTP::crPwd(char* out, const string& currentDir)
     len += 1;
 
     strncpy(out+len, currentDir.c_str(), BUFLEN);
-    len += currentDir.size();
+    len += min(currentDir.size(), (size_t) BUFLEN);
 
     /* Make sure that null termination is added
        in case that ls content len goes over BUFLEN */
@@ -153,6 +172,23 @@ size_t SFTP::crLs(char* out, const string& data, uint32_t index, uint32_t end)
 
     strncpy(out+len, data.c_str(), BUFLEN);  
     len += std::min(data.size(), (size_t)(BUFLEN - 10)); // Max buffer length minus header and termination
+
+    out[len] = '\0';
+    len += 1;
+
+    return len;
+}
+
+size_t SFTP::crCd(char* out, const string& finalPath)
+{
+    clearBuffer(BUFLEN, out);
+    size_t len = 0;
+
+    out[0] = SUCCESS;
+    len += 1;
+
+    strncpy(out+len, finalPath.c_str(), BUFLEN);
+    len += min(finalPath.size(), (size_t) BUFLEN);
 
     out[len] = '\0';
     len += 1;
