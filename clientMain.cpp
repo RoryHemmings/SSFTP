@@ -72,6 +72,9 @@ void error(int8_t code)
     case SFTP::COMMAND_EXECUTION_FAILED:
         LOGGER::LogError("Failed to execute command");
         break;
+    case SFTP::INVALID_PATH:
+        LOGGER::LogError("Invalid Path");
+        break;
     case L_INVALID_COMMAND:
         LOGGER::LogError("Invalid Command");
         break;
@@ -203,14 +206,14 @@ void parseLs(ClientSocket& sock)
     LOGGER::Log(output, LOGGER::WHITE, false);
 }
 
-void parseCd(ClientSocket& sock)
+void parseCd(ClientSocket& sock, std::string& currentDir)
 {
     sock.recv(in);
     if (checkStatus())
     {
         // TODO in the future I want to change the path string behind the >>>
         std::string newPath(in+1);
-        LOGGER::Log("Changed Directory: " + newPath);
+        currentDir = newPath;
     }
     else 
     {
@@ -222,6 +225,7 @@ void parseCd(ClientSocket& sock)
 int main(int argc, char** argv)
 {
     std::string username;
+    std::string currentDir;
 
     ClientSocket sock("127.0.0.1", PORT);
 
@@ -239,7 +243,7 @@ int main(int argc, char** argv)
     {
         clearBuffers(BUFLEN, in, out);
 
-        LOGGER::Log(">>> ", LOGGER::COLOR::RED, false);
+        LOGGER::Log(currentDir + "$ ", LOGGER::COLOR::RED, false);
         getline(std::cin, input);
 
         std::vector<std::string> cmd = split(input);
@@ -256,8 +260,8 @@ int main(int argc, char** argv)
             break;
         case L_CDIR:
             // TODO create command parameter system client side
-            sock.send(SFTP::ccCd(out, "next"), out);
-            parseCd(sock);
+            sock.send(SFTP::ccCd(out, ""), out);
+            parseCd(sock, currentDir);
             break;
         case L_MKDIR:
             break;

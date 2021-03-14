@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <pwd.h>
+#include <sys/stat.h>
 #include <shadow.h>
 
 #include "sftp.h"
@@ -175,13 +176,6 @@ void listDirectory(Socket* client)
     }
 }
 
-// Test cases
-// cd ..
-// cd ../..
-// cd ../.
-// cd test/test/.
-// cd test//test/../test//
-
 bool isSlash(char c)
 {
     return c == '/';
@@ -257,7 +251,15 @@ size_t changeUserDirectory(Socket* client)
     std::string path(in+1); // null termination for command acts as null termination for string
     std::string newPath = generateNewPath(user->currentDir, path); 
 
-    // Check if it is valid (real path and withing access bubble)
+    // Check if path is valid
+    struct stat buffer;
+    if (stat(newPath.c_str(), &buffer) != 0)
+        return SFTP::createFailureResponse(out, SFTP::INVALID_PATH); 
+
+    // Check that path is within access bubble
+    std::string::size_type homeDirLen = user->homeDir.size();
+    if (newPath.substr(0, homeDirLen) != user->homeDir)
+        return SFTP::crCd(out, user->homeDir);
 
     return SFTP::crCd(out, newPath);
 }
