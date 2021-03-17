@@ -258,7 +258,7 @@ void parseGrab(ClientSocket& sock)
     }
 
     std::ofstream outfile;
-    outfile.open(path, std::ofstream::binary);
+    outfile.open(path, std::ios::binary);
 
     if (!outfile.is_open())
     {
@@ -277,6 +277,7 @@ void parseGrab(ClientSocket& sock)
             uint16_t length;
             memcpy(&length, in+1, 2);
 
+            LOGGER::HexDump("in", in+3, length);
             outfile.write(in+3, length);
 
             clearBuffers(BUFLEN, in, out);

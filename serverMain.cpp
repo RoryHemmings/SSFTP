@@ -290,7 +290,6 @@ void grabFile(Socket* client, const std::string& filePath)
 
     std::string path;
     path = generateNewPath(user->currentDir, filePath);
-    LOGGER::DebugLog(path);
     
     std::ifstream file;
     file.open(path, std::ios::binary);
@@ -309,9 +308,12 @@ void grabFile(Socket* client, const std::string& filePath)
         {
             size_t i = 3; // Starts at 3 to leave space for status byte and length 
             clearBuffer(BUFLEN, tempOut);
-            while (i < BUFLEN - 1 && !file.eof()) // Leave space for null termination
+            while (i < BUFLEN - 1) // Leave space for null termination
             {
                 char c = (char) file.get();
+                if (file.eof())
+                    break;
+
                 tempOut[i] = c;
                 ++i;
             }
