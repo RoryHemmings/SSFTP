@@ -25,11 +25,11 @@ enum COMMAND
     PRWD = 0x02, // 0000 0010
     LIST = 0x03, // 0000 0011
     CDIR = 0x04, // 0000 0100
-    KILL = 0x05, // 0000 0101
-    NAME = 0x06, // 0000 0110
-    DONE = 0x07, // 0000 0111
-    RETR = 0x08, // 0000 1000
-    STOR = 0x09, // 0000 1001
+    REMV = 0x05, // 0000 0101
+    MOVE = 0x06, // 0000 0110
+    GRAB = 0x07, // 0000 0111
+    PUTF = 0x08, // 0000 1000
+    COPY = 0x09, // 0000 1001
 };
 
 enum RESPONSE
@@ -48,7 +48,8 @@ enum SFTP_ERROR
     INVALID_RESPONSE = 6,
     INVALID_CLIENT_RESPONSE = 7,
     COMMAND_EXECUTION_FAILED = 8,
-    INVALID_PATH = 9
+    INVALID_PATH = 9,
+    FAILED_TO_OPEN_FILE = 10
 };
 
 COMMAND resolveCommand(const char cmd);
@@ -60,14 +61,18 @@ size_t ccUser(char* out, const std::string& username, const std::string& passwor
 size_t ccPwd(char* out);
 size_t ccLs(char* out);
 size_t ccCd(char* out, const std::string& path);
+size_t ccGrab(char* out, const std::string& path);
 
 /*
  * Response Factories (used by server)
  */
 
 size_t crPwd(char* out, const std::string& workingDir);
-size_t crLs(char* out, const std::string& data, uint32_t index, uint32_t end);
+size_t crLsPrimary(char* out, uint32_t totalPackets);
+size_t crLs(char* out, const std::string& data);
 size_t crCd(char* out, const std::string& finalPath);
+size_t crGrabPrimary(char* out, uint32_t totalPacket, const std::string& path);
+size_t crGrab(char* out, uint16_t dataLength);
 
 /*
  * Stock Response Factories (used by server)

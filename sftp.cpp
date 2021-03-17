@@ -15,11 +15,11 @@ COMMAND SFTP::resolveCommand(const char cmd)
         { 0x02, PRWD },
         { 0x03, LIST },
         { 0x04, CDIR },
-        { 0x05, KILL },
-        { 0x06, NAME },
-        { 0x07, DONE },
-        { 0x08, RETR },
-        { 0x09, STOR },
+        { 0x05, REMV },
+        { 0x06, MOVE },
+        { 0x07, GRAB },
+        { 0x08, PUTF },
+        { 0x09, COPY },
     };
 
     uint8_t val = (uint8_t)cmd;
@@ -137,6 +137,23 @@ size_t SFTP::ccCd(char* out, const string& path)
     return len;
 }
 
+size_t SFTP::ccGrab(char* out, const std::string& path)
+{
+    clearBuffer(BUFLEN, out);
+    size_t len = 0;
+
+    out[0] = GRAB;
+    len += 1;
+
+    strncpy(out+len, path.c_str(), BUFLEN);
+    len += min(path.size(), (size_t) BUFLEN);
+
+    out[len] = '\0';
+    len += 1;
+
+    return len;
+}
+
 size_t SFTP::crPwd(char* out, const string& currentDir)
 {
     clearBuffer(BUFLEN, out);
@@ -156,7 +173,7 @@ size_t SFTP::crPwd(char* out, const string& currentDir)
     return len;
 }
 
-size_t SFTP::crLs(char* out, const string& data, uint32_t index, uint32_t end)
+size_t SFTP::crLsPrimary(char* out, uint32_t totalPackets)
 {
     clearBuffer(BUFLEN, out);
     size_t len = 0;
@@ -164,14 +181,25 @@ size_t SFTP::crLs(char* out, const string& data, uint32_t index, uint32_t end)
     out[0] = SUCCESS;
     len += 1;
 
-    memcpy(out+len, &index, 4);
-    len += 4;
+    memcpy(out+len, &totalPackets, sizeof(totalPackets));
+    len += sizeof(totalPackets);
 
-    memcpy(out+len, &end, 4);
-    len += 4;
+    out[len] = '\0';
+    len += 1;
 
-    strncpy(out+len, data.c_str(), BUFLEN);  
-    len += std::min(data.size(), (size_t)(BUFLEN - 10)); // Max buffer length minus header and termination
+    return len;
+}
+
+size_t SFTP::crLs(char* out, const string& data)
+{
+    clearBuffer(BUFLEN, out);
+    size_t len = 0;
+
+    out[0] = SUCCESS;
+    len += 1;
+
+    strncpy(out+len, data.c_str(), BUFLEN-2);  
+    len += std::min(data.size(), (size_t)(BUFLEN-2)); // Max buffer length minus header and termination
 
     out[len] = '\0';
     len += 1;
@@ -182,17 +210,64 @@ size_t SFTP::crLs(char* out, const string& data, uint32_t index, uint32_t end)
 size_t SFTP::crCd(char* out, const string& finalPath)
 {
     clearBuffer(BUFLEN, out);
+    size_t numReservedBytes = 2;
     size_t len = 0;
 
     out[0] = SUCCESS;
     len += 1;
 
-    strncpy(out+len, finalPath.c_str(), BUFLEN);
-    len += min(finalPath.size(), (size_t) BUFLEN);
+    strncpy(out+len, finalPath.c_str(), BUFLEN - numReservedBytes);
+    len += min(finalPath.size(), (size_t) BUFLEN - numReservedBytes);
 
     out[len] = '\0';
     len += 1;
 
+    return len;
+}
+
+size_t SFTP::crGrabPrimary(char* out, uint32_t totalPackets, const std::string& path)
+{
+    clearBuffer(BUFLEN, out);
+
+    size_t numReservedBytes = 6;
+    size_t len = 0; 
+
+    out[0] = SUCCESS;
+    len += 1;
+
+    memcpy(out+len, &totalPackets, sizeof(totalPackets));
+    len += sizeof(totalPackets);
+
+    strncpy(out+len, path.c_str(), BUFLEN - numReservedBytes);
+    len += min(path.size(), (size_t) BUFLEN - numReservedBytes);
+
+    out[len] = '\0';
+    len += 1;
+
+    return len;
+}
+
+/* This function breaks convention for efficiency
+ * It does not append data to a buffer, but instead 
+ * takes a buffer that is already modified except for
+ * the ends. This is to avoid copying large buffers 
+ * multiple times */
+size_t SFTP::crGrab(char* out, uint16_t dataLength)
+{
+    size_t len = 0;  
+
+    out[0] = SUCCESS;
+    len += 1;
+
+    memcpy(out+len, &dataLength, sizeof(dataLength));
+    len += sizeof(dataLength);
+
+    // Skip the data already written
+    len += dataLength;
+
+    out[len] = '\0';
+    len += 1;
+    
     return len;
 }
 

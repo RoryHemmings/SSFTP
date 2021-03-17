@@ -14,6 +14,7 @@
 #include <future>
 #include <map>
 #include <cmath>
+#include <fstream>
 
 #include <unistd.h>
 #include <limits.h>
@@ -163,13 +164,15 @@ void listDirectory(Socket* client)
         return;
     }
 
-    size_t maxlen = BUFLEN - 10; // max number of data bytes allowed in the buffer (9 header bytes and 1 null termination)
-    uint32_t end = floor(ret.size() / maxlen); // Will be one less than total number, which means that it is the final index
+    size_t maxlen = BUFLEN - 2; // max number of data bytes allowed in the buffer (1 header byte and 1 null termination)
+    uint32_t numPackets = floor(ret.size() / maxlen) + 1; // total number of packets 
+
+    client->send(SFTP::crLsPrimary(tempOut, numPackets), tempOut);
 
     int i = 0;
     while (i < ret.size())
     {
-        client->send(SFTP::crLs(tempOut, ret.substr(i, maxlen), floor(i / maxlen), end), tempOut);
+        client->send(SFTP::crLs(tempOut, ret.substr(i, maxlen)), tempOut);
         i += maxlen;
 
         clearBuffer(BUFLEN, tempIn);
@@ -239,6 +242,10 @@ std::string generateNewPath(const std::string& path, const std::string& next)
     // Apply instances of /..
     removeDotPairs(ret);
 
+    // Remove ending slash
+    if (ret[ret.size() - 1] == '/')
+        ret.erase(ret.size() - 1);
+
     return ret;
 }
 
@@ -256,12 +263,69 @@ size_t changeUserDirectory(Socket* client)
     if (stat(newPath.c_str(), &buffer) != 0)
         return SFTP::createFailureResponse(out, SFTP::INVALID_PATH); 
 
+    std::string finalPath = newPath;
+
     // Check that path is within access bubble
     std::string::size_type homeDirLen = user->homeDir.size();
     if (newPath.substr(0, homeDirLen) != user->homeDir)
-        return SFTP::crCd(out, user->homeDir);
+        finalPath = user->homeDir;
 
-    return SFTP::crCd(out, newPath);
+    user->currentDir = finalPath;
+    return SFTP::crCd(out, finalPath);
+}
+
+// Takes string for file path to prevent buffer issues
+void grabFile(Socket* client, const std::string& filePath)
+{
+    // Temporary buffers so that the async buffer doesn't share with the sync one
+    char tempIn[BUFLEN];
+    char tempOut[BUFLEN];
+
+    User* user = getUserByClient(client);
+    if (user == NULL)
+    {
+        client->send(SFTP::createFailureResponse(tempOut, SFTP::NOT_LOGGED_IN), tempOut);
+        return;
+    }
+
+    std::string path;
+    path = generateNewPath(user->currentDir, filePath);
+    LOGGER::DebugLog(path);
+    
+    std::ifstream file;
+    file.open(path, std::ios::binary);
+
+    file.seekg(0, file.end);
+    int fileSize = file.tellg();
+    file.seekg(0, file.beg);
+
+    uint32_t totalPackets = floor(fileSize / (BUFLEN - 4)) + 1;
+
+    client->send(SFTP::crGrabPrimary(tempOut, totalPackets, filePath), tempOut);
+
+    if (file.is_open())
+    {
+        while (!file.eof())
+        {
+            size_t i = 3; // Starts at 3 to leave space for status byte and length 
+            clearBuffer(BUFLEN, tempOut);
+            while (i < BUFLEN - 1 && !file.eof()) // Leave space for null termination
+            {
+                char c = (char) file.get();
+                tempOut[i] = c;
+                ++i;
+            }
+            
+            uint16_t length = i - 3;
+            client->send(SFTP::crGrab(tempOut, length), tempOut);
+        }
+        file.close();
+    }
+    else
+    {
+        client->send(SFTP::createFailureResponse(tempOut, SFTP::FAILED_TO_OPEN_FILE), tempOut);
+        return;
+    }
 }
 
 // Returns of message length
@@ -283,6 +347,9 @@ size_t handleCommand(Socket* client)
         return 0;
     case SFTP::CDIR: // sync
         return changeUserDirectory(client);
+    case SFTP::GRAB: // async
+        temp = std::async(std::launch::async, &grabFile, client, std::string(in+1));
+        return 0;
     }
 
     return SFTP::createFailureResponse(out, SFTP::INVALID_COMMAND);

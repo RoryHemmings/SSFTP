@@ -13,6 +13,7 @@
 #include <map>
 #include <vector>
 #include <cmath>
+#include <fstream>
 
 // To parse args
 #include <unistd.h>
@@ -36,6 +37,7 @@ enum L_COMMAND
     L_LS,
     L_PWD,
     L_CDIR,
+    L_GRAB,
     L_MKDIR,
     L_EXIT,
     INVALID
@@ -43,7 +45,8 @@ enum L_COMMAND
 
 enum L_ERROR
 {
-    L_INVALID_COMMAND = -1
+    L_INVALID_COMMAND = -1,
+    L_FAILED_TO_OPEN_FILE = -2
 };
 
 /* Positive codes are remote and negative errors are local */
@@ -75,8 +78,14 @@ void error(int8_t code)
     case SFTP::INVALID_PATH:
         LOGGER::LogError("Invalid Path");
         break;
+    case SFTP::FAILED_TO_OPEN_FILE:
+        LOGGER::LogError("Couldn't open file");
+        break;
     case L_INVALID_COMMAND:
         LOGGER::LogError("Invalid Command");
+        break;
+    case L_FAILED_TO_OPEN_FILE:
+        LOGGER::LogError("Failed to open file locally");
         break;
     default:
         LOGGER::LogError("Unkown Error");
@@ -91,6 +100,7 @@ L_COMMAND resolveCommand(const std::string& cmd)
         { "pwd", L_PWD },
         { "ls", L_LS },
         { "cd", L_CDIR },
+        { "grab", L_GRAB },
         { "mkdir", L_MKDIR },
         { "exit", L_EXIT }
     };
@@ -110,10 +120,9 @@ std::string authenticateConnection(ClientSocket& sock)
 {
     clearBuffers(BUFLEN, in, out);
 
-    std::string username = "rory";
-    std::string password = "kalikali";
+    std::string username;
+    std::string password;
 
-    /*
     LOGGER::Log("Enter username for ", LOGGER::COLOR::MAGENTA, false);
     LOGGER::Log(username, LOGGER::COLOR::CYAN, false);
     LOGGER::Log(": ", LOGGER::COLOR::MAGENTA, false);
@@ -123,7 +132,6 @@ std::string authenticateConnection(ClientSocket& sock)
     LOGGER::Log(username, LOGGER::COLOR::CYAN, false);
     LOGGER::Log(": ", LOGGER::COLOR::MAGENTA, false);
     getline(std::cin, password);
-    */
 
     // hexDump("UserBuffer", out, 100);
     sock.send(SFTP::ccUser(out, username, password), out);
@@ -178,21 +186,28 @@ void parsePwd(ClientSocket& sock)
 void parseLs(ClientSocket& sock)
 {
     std::string output = "";
-    uint32_t index, end;
+    uint32_t index = 0, end;
+
+    // Get primary information
+    sock.recv(in);
+
+    if (checkStatus()) // Handles errors
+    {
+        // Get the uint32_t value: end
+        memcpy(&end, in+1, 4);
+
+        clearBuffers(BUFLEN, in, out);
+    }
 
     do
     {
+        // Get secondary information
         sock.recv(in);
 
         if (checkStatus()) // Handles errors
         {
-            // Get the two uint32_t values: index and end
-            memcpy(&index, in+1, 4);
-            memcpy(&end, in+5, 4);
-
             // Append output to output string
-            output += std::string(in+9);
-
+            output += std::string(in+1);
             clearBuffers(BUFLEN, in, out);
         }
         else 
@@ -200,6 +215,8 @@ void parseLs(ClientSocket& sock)
             // Error was already handled by checkStatus()
             return;
         }
+
+        ++index;
     }
     while (index < end);
 
@@ -211,7 +228,6 @@ void parseCd(ClientSocket& sock, std::string& currentDir)
     sock.recv(in);
     if (checkStatus())
     {
-        // TODO in the future I want to change the path string behind the >>>
         std::string newPath(in+1);
         currentDir = newPath;
     }
@@ -220,6 +236,62 @@ void parseCd(ClientSocket& sock, std::string& currentDir)
         // Error was already handled by checkStatus()
         return;
     }
+}
+
+void parseGrab(ClientSocket& sock)
+{
+    uint32_t index = 0, end;
+    std::string path;
+    
+    // Get primary information
+    sock.recv(in);
+
+    if (checkStatus()) // Handles errors
+    {
+        char* outPath;
+
+        // Get the uint32_t value: end
+        memcpy(&end, in+1, 4);
+        path = std::string(in+5);
+
+        clearBuffers(BUFLEN, in, out);
+    }
+
+    std::ofstream outfile;
+    outfile.open(path, std::ofstream::binary);
+
+    if (!outfile.is_open())
+    {
+        error(L_FAILED_TO_OPEN_FILE);
+        return;
+    } 
+
+    do
+    {
+        // Get secondary information
+        sock.recv(in);
+
+        if (checkStatus()) // Handles errors
+        {
+            // Append output to output string
+            uint16_t length;
+            memcpy(&length, in+1, 2);
+
+            outfile.write(in+3, length);
+
+            clearBuffers(BUFLEN, in, out);
+        }
+        else 
+        {
+            // Error was already handled by checkStatus()
+            return;
+        }
+
+        ++index;
+    }
+    while (index < end);
+
+    outfile.close();
 }
 
 int main(int argc, char** argv)
@@ -259,9 +331,22 @@ int main(int argc, char** argv)
             parseLs(sock);
             break;
         case L_CDIR:
-            // TODO create command parameter system client side
-            sock.send(SFTP::ccCd(out, ""), out);
+            if (cmd.size() != 2)
+            {
+                LOGGER::Log("Usage: cd <path>");                
+                break;
+            }
+            sock.send(SFTP::ccCd(out, cmd[1]), out);
             parseCd(sock, currentDir);
+            break;
+        case L_GRAB:
+            if (cmd.size() != 2)
+            {
+                LOGGER::Log("Usage: grab <filename>");
+                break;
+            }
+            sock.send(SFTP::ccGrab(out, cmd[1]), out);
+            parseGrab(sock);
             break;
         case L_MKDIR:
             break;
