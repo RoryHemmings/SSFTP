@@ -266,6 +266,8 @@ void parseGrab(ClientSocket& sock)
         return;
     } 
 
+    LOGGER::Log("[", LOGGER::COLOR::WHITE, false);
+
     do
     {
         // Get secondary information
@@ -277,7 +279,7 @@ void parseGrab(ClientSocket& sock)
             uint16_t length;
             memcpy(&length, in+1, 2);
 
-            LOGGER::HexDump("in", in+3, length);
+            LOGGER::Log("#", LOGGER::COLOR::WHITE, false);
             outfile.write(in+3, length);
 
             clearBuffers(BUFLEN, in, out);
@@ -291,6 +293,8 @@ void parseGrab(ClientSocket& sock)
         ++index;
     }
     while (index < end);
+
+    LOGGER::Log("]");
 
     outfile.close();
 }
