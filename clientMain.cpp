@@ -23,6 +23,9 @@
 #include "socket.h"
 #include "utils.h"
 
+#define REMOTE 0
+#define LOCAL 1
+
 /* Even though global variables are generally considered bad
  * practice in many situations, it is by far the most simple
  * and efficient way of doing things for this situation
@@ -38,7 +41,9 @@ enum L_COMMAND
     L_PWD,
     L_CDIR,
     L_GRAB,
+    L_PUT,
     L_MKDIR,
+    L_TOGGLE,
     L_EXIT,
     INVALID
 };
@@ -101,7 +106,9 @@ L_COMMAND resolveCommand(const std::string& cmd)
         { "ls", L_LS },
         { "cd", L_CDIR },
         { "grab", L_GRAB },
+        { "put", L_PUT },
         { "mkdir", L_MKDIR },
+        { "toggle", L_TOGGLE },
         { "exit", L_EXIT }
     };
 
@@ -223,13 +230,13 @@ void parseLs(ClientSocket& sock)
     LOGGER::Log(output, LOGGER::WHITE, false);
 }
 
-void parseCd(ClientSocket& sock, std::string& currentDir)
+void parseCd(ClientSocket& sock, std::string& remoteDir)
 {
     sock.recv(in);
     if (checkStatus())
     {
         std::string newPath(in+1);
-        currentDir = newPath;
+        remoteDir = newPath;
     }
     else 
     {
@@ -299,10 +306,30 @@ void parseGrab(ClientSocket& sock)
     outfile.close();
 }
 
+void sendFile(ClientSocket& sock)
+{
+    
+}
+
+void localPwd(const std::string& localDir)
+{
+    LOGGER::Log(localDir);
+}
+
+std::string getExecPath()
+{
+  char result[ 1024 ];
+  ssize_t count = readlink( "/proc/self/exe", result, 1024 );
+  return std::string( result, (count > 0) ? count : 0 );
+}
+
 int main(int argc, char** argv)
 {
     std::string username;
-    std::string currentDir;
+    std::string remoteDir;
+    std::string localDir = getExecPath();
+
+    int mode = REMOTE;
 
     ClientSocket sock("127.0.0.1", PORT);
 
@@ -320,7 +347,11 @@ int main(int argc, char** argv)
     {
         clearBuffers(BUFLEN, in, out);
 
-        LOGGER::Log(currentDir + "$ ", LOGGER::COLOR::RED, false);
+        if (mode == LOCAL)
+            LOGGER::Log("(LOCAL) " + localDir + "$ ", LOGGER::COLOR::GREEN, false);
+        else
+            LOGGER::Log("(REMOTE) " + remoteDir + "$ ", LOGGER::COLOR::RED, false);
+
         getline(std::cin, input);
 
         std::vector<std::string> cmd = split(input);
@@ -328,8 +359,15 @@ int main(int argc, char** argv)
         switch (resolveCommand(cmd[0]))
         {
         case L_PWD:
-            sock.send(SFTP::ccPwd(out), out);
-            parsePwd(sock);
+            if (mode == REMOTE)
+            {
+                sock.send(SFTP::ccPwd(out), out);
+                parsePwd(sock);
+            }
+            else
+            {
+                localPwd(localDir);
+            }
             break;
         case L_LS:
             sock.send(SFTP::ccLs(out), out);
@@ -342,7 +380,7 @@ int main(int argc, char** argv)
                 break;
             }
             sock.send(SFTP::ccCd(out, cmd[1]), out);
-            parseCd(sock, currentDir);
+            parseCd(sock, remoteDir);
             break;
         case L_GRAB:
             if (cmd.size() != 2)
@@ -353,7 +391,13 @@ int main(int argc, char** argv)
             sock.send(SFTP::ccGrab(out, cmd[1]), out);
             parseGrab(sock);
             break;
+        case L_PUT:
+            sendFile(sock);
+            break;
         case L_MKDIR:
+            break;
+        case L_TOGGLE:
+            mode = (mode == LOCAL) ? REMOTE : LOCAL;
             break;
         case L_EXIT:
             LOGGER::Log("bye");
