@@ -92,32 +92,6 @@ size_t checkPassword(Socket* client)
     return SFTP::createSuccessResponse(out);
 }
 
-std::string exec(const std::string& command)
-{
-    char buffer[128];
-    std::string ret = "";
-    FILE* pipe;
-
-    pipe = popen(command.c_str(), "r");
-    if (!pipe)
-        return "";
-    try
-    {
-        while (fgets(buffer, sizeof buffer, pipe) != NULL)
-        {
-            ret += buffer;
-        }
-    }
-    catch (...)
-    {
-        pclose(pipe);
-        return "";
-    }
-
-    pclose(pipe);
-    return ret;
-}
-
 User* getUserByClient(Socket* client)
 {
     auto iter = users.find(client);
@@ -177,76 +151,6 @@ void listDirectory(Socket* client)
 
         clearBuffer(BUFLEN, tempIn);
     }
-}
-
-bool isSlash(char c)
-{
-    return c == '/';
-}
-
-/*
- *  Recursively removes dot pairs
- */
-void removeDotPairs(std::string& s)
-{
-    std::vector<int> slashIndicies;
-    for (std::string::size_type i = 0; i < s.size(); ++i)
-    {
-        if (s[i] == '/')
-            slashIndicies.push_back(i);
-    }
-    
-    for (auto iter = slashIndicies.begin(); iter != slashIndicies.end(); ++iter)
-    {
-        if (s[*(iter)+1] == '.') 
-        {
-            if (s[*(iter)+2] == '.') 
-            {
-                if (s[*(iter)+3] == '/') // whole path is wrapped in /, so this shouldn't violate bounds
-                {
-                    // succesfully found valid /..
-                    // delete from last slash index to this slash index plus 3
-                    
-                    s.erase(*(iter - 1), ((*iter) + 3) - (*(iter - 1)));
-
-                    /* Since slashIndicies is invalid, now I can
-                     * just recursively call the function to start over
-                     * and Eventually remove all pairs
-                     */
-                    removeDotPairs(s);
-                    break;
-                }
-            }
-        }
-    }
-}
-
-std::string generateNewPath(const std::string& path, const std::string& next)
-{
-    std::string fullPath = "/" + path + "/" + next + "/";
-    std::string ret = "";
-    
-    // Remove double (or more) slashes
-    // this way it will work regardless 
-    // of when people put slashes in their paths
-    auto i = fullPath.begin();
-    while (i != fullPath.end())
-    {
-        ret += *i;
-        if ((*i) == '/')
-            i = std::find_if_not(++i, fullPath.end(), isSlash); // Skip all preceding slashes until regular char is found
-        else
-            ++i;
-    }
-
-    // Apply instances of /..
-    removeDotPairs(ret);
-
-    // Remove ending slash
-    if (ret[ret.size() - 1] == '/')
-        ret.erase(ret.size() - 1);
-
-    return ret;
 }
 
 size_t changeUserDirectory(Socket* client)
@@ -402,7 +306,6 @@ void onDisconnect(Socket* client)
 
     LOGGER::Log("Client disconnected: " + client->Name(), LOGGER::COLOR::YELLOW);
 }
-
 
 int main(int argc, char** argv)
 {

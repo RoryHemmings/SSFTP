@@ -17,6 +17,8 @@
 
 // To parse args
 #include <unistd.h>
+#include <libgen.h>
+#include <sys/stat.h>
 
 #include "sftp.h"
 #include "logger.h"
@@ -51,7 +53,8 @@ enum L_COMMAND
 enum L_ERROR
 {
     L_INVALID_COMMAND = -1,
-    L_FAILED_TO_OPEN_FILE = -2
+    L_FAILED_TO_OPEN_FILE = -2,
+    L_INVALID_PATH = -3
 };
 
 /* Positive codes are remote and negative errors are local */
@@ -91,6 +94,9 @@ void error(int8_t code)
         break;
     case L_FAILED_TO_OPEN_FILE:
         LOGGER::LogError("Failed to open file locally");
+        break;
+    case L_INVALID_PATH:
+        LOGGER::LogError("Invalid Path");
         break;
     default:
         LOGGER::LogError("Unkown Error");
@@ -245,7 +251,7 @@ void parseCd(ClientSocket& sock, std::string& remoteDir)
     }
 }
 
-void parseGrab(ClientSocket& sock)
+void parseGrab(ClientSocket& sock, std::string outputDir)
 {
     uint32_t index = 0, end;
     std::string path;
@@ -265,7 +271,7 @@ void parseGrab(ClientSocket& sock)
     }
 
     std::ofstream outfile;
-    outfile.open(path, std::ios::binary);
+    outfile.open(outputDir + "/" + path, std::ios::binary);
 
     if (!outfile.is_open())
     {
@@ -316,11 +322,39 @@ void localPwd(const std::string& localDir)
     LOGGER::Log(localDir);
 }
 
+void localLs(const std::string& localDir)
+{
+    std::string ret;
+    ret = exec("ls -la " + localDir);
+
+    LOGGER::Log(ret);
+}
+
+void changeLocalDirectory(std::string& localDir, const std::string& path)
+{
+    std::string newPath = generateNewPath(localDir, path);
+    
+    // Check if path is valid
+    struct stat buffer;
+    if (stat(newPath.c_str(), &buffer) != 0)
+    {
+        error(L_INVALID_PATH);
+        return;
+    }
+
+    localDir = newPath;
+}
+
 std::string getExecPath()
 {
   char result[ 1024 ];
+  const char* path;
+
   ssize_t count = readlink( "/proc/self/exe", result, 1024 );
-  return std::string( result, (count > 0) ? count : 0 );
+  if (count != -1)
+      path = dirname(result);
+
+  return path;
 }
 
 int main(int argc, char** argv)
@@ -330,6 +364,7 @@ int main(int argc, char** argv)
     std::string localDir = getExecPath();
 
     int mode = REMOTE;
+    // TODO update all commands so that they work with their appropriate mode 
 
     ClientSocket sock("127.0.0.1", PORT);
 
@@ -365,13 +400,18 @@ int main(int argc, char** argv)
                 parsePwd(sock);
             }
             else
-            {
                 localPwd(localDir);
-            }
+
             break;
         case L_LS:
-            sock.send(SFTP::ccLs(out), out);
-            parseLs(sock);
+            if (mode == REMOTE)
+            {
+                sock.send(SFTP::ccLs(out), out);
+                parseLs(sock);
+            }
+            else
+                localLs(localDir);
+
             break;
         case L_CDIR:
             if (cmd.size() != 2)
@@ -379,22 +419,46 @@ int main(int argc, char** argv)
                 LOGGER::Log("Usage: cd <path>");                
                 break;
             }
-            sock.send(SFTP::ccCd(out, cmd[1]), out);
-            parseCd(sock, remoteDir);
+            if (mode == REMOTE)
+            {
+                sock.send(SFTP::ccCd(out, cmd[1]), out);
+                parseCd(sock, remoteDir);
+            }
+            else
+                changeLocalDirectory(localDir, cmd[1]);
+
             break;
         case L_GRAB:
+            if (mode != REMOTE)
+            {
+                LOGGER::LogError("the grab command is only valid in REMOTE mode");
+                break;
+            }
             if (cmd.size() != 2)
             {
                 LOGGER::Log("Usage: grab <filename>");
                 break;
             }
             sock.send(SFTP::ccGrab(out, cmd[1]), out);
-            parseGrab(sock);
+            parseGrab(sock, localDir);
             break;
         case L_PUT:
+            if (mode != LOCAL)
+            {
+                LOGGER::LogError("the put command is only valid in LOCAL mode");
+                break;
+            }
             sendFile(sock);
             break;
         case L_MKDIR:
+            if (mode == REMOTE)
+            {
+
+            }
+            else
+            {
+
+            }
             break;
         case L_TOGGLE:
             mode = (mode == LOCAL) ? REMOTE : LOCAL;

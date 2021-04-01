@@ -16,5 +16,11 @@ std::vector<std::string> split(const std::string& s);
 
 void hexDump(const char*, const void*, const int);
 
+std::string exec(const std::string& command);
+
+bool isSlash(char c);
+void removeDotPairs(std::string& s);
+std::string generateNewPath(const std::string& path, const std::string& next);
+
 #endif
 
