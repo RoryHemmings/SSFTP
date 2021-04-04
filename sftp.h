@@ -62,6 +62,8 @@ size_t ccPwd(char* out);
 size_t ccLs(char* out);
 size_t ccCd(char* out, const std::string& path);
 size_t ccGrab(char* out, const std::string& path);
+size_t ccPutPrimary(char* out, uint32_t totalPackets, const std::string& path);
+size_t ccPut(char* out, uint16_t dataLength);
 
 /*
  * Response Factories (used by server)
@@ -71,8 +73,9 @@ size_t crPwd(char* out, const std::string& workingDir);
 size_t crLsPrimary(char* out, uint32_t totalPackets);
 size_t crLs(char* out, const std::string& data);
 size_t crCd(char* out, const std::string& finalPath);
-size_t crGrabPrimary(char* out, uint32_t totalPacket, const std::string& path);
+size_t crGrabPrimary(char* out, uint32_t totalPackets, const std::string& path);
 size_t crGrab(char* out, uint16_t dataLength);
+size_t crPut(char* out, const std::string& path);
 
 /*
  * Stock Response Factories (used by server)

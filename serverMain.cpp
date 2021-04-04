@@ -30,8 +30,6 @@
 /* Even though global variables are generally considered bad
  * practice in many situations, it is by far the most simple
  * and efficient way of doing things for this situation
- *
- * trust me I have tried several different workarounds
  */
 char in[BUFLEN];
 char out[BUFLEN];
@@ -223,6 +221,13 @@ void grabFile(Socket* client, const std::string& filePath)
             }
             
             uint16_t length = i - 3;
+
+            /* crGrab works differently from all other response facotries
+             * Instead of overwriting buffer, it only changes the status byte
+             * and the length
+
+             * This is done to prevent copying of the entire buffer which would be inefficient
+             */
             client->send(SFTP::crGrab(tempOut, length), tempOut);
         }
         file.close();
@@ -232,6 +237,11 @@ void grabFile(Socket* client, const std::string& filePath)
         client->send(SFTP::createFailureResponse(tempOut, SFTP::FAILED_TO_OPEN_FILE), tempOut);
         return;
     }
+}
+
+void receiveFile()
+{
+    // TODO figure this out
 }
 
 // Returns of message length
@@ -255,6 +265,9 @@ size_t handleCommand(Socket* client)
         return changeUserDirectory(client);
     case SFTP::GRAB: // async
         temp = std::async(std::launch::async, &grabFile, client, std::string(in+1));
+        return 0;
+    case SFTP::PUTF: // async
+        temp = std::async(std::launch::async, &receiveFile);
         return 0;
     }
 

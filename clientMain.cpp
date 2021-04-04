@@ -31,8 +31,6 @@
 /* Even though global variables are generally considered bad
  * practice in many situations, it is by far the most simple
  * and efficient way of doing things for this situation
- *
- * trust me I have tried several different workarounds
  */
 char in[BUFLEN];
 char out[BUFLEN];
@@ -46,6 +44,8 @@ enum L_COMMAND
     L_PUT,
     L_MKDIR,
     L_TOGGLE,
+    L_CLEAR,
+    L_HELP,
     L_EXIT,
     INVALID
 };
@@ -115,6 +115,8 @@ L_COMMAND resolveCommand(const std::string& cmd)
         { "put", L_PUT },
         { "mkdir", L_MKDIR },
         { "toggle", L_TOGGLE },
+        { "clear", L_CLEAR },
+        { "help", L_HELP },
         { "exit", L_EXIT }
     };
 
@@ -312,9 +314,48 @@ void parseGrab(ClientSocket& sock, std::string outputDir)
     outfile.close();
 }
 
-void sendFile(ClientSocket& sock)
+void sendFile(ClientSocket& sock, const std::string& localDir, const std::string& filePath)
 {
-    
+    std::string path;
+    path = generateNewPath(localDir, filePath);
+
+    std::ifstream file;
+    file.open(path, std::ios::binary);
+
+    // Get file size
+    file.seekg(0, file.end);
+    int fileSize = file.tellg();
+    file.seekg(0, file.beg);
+
+    uint32_t totalPackets = floor(fileSize / (BUFLEN - 4)) + 1;
+
+    sock.send(SFTP::ccPutPrimary(out, totalPackets, path), out);  
+    sock.recv(in);
+
+    if (!checkStatus())
+        return; 
+
+    if (file.is_open())
+    {
+        while (!file.eof())
+        {
+            size_t i = 3; // Starts at 3 to leave space for status byte and length
+            clearBuffer(BUFLEN, out);
+            while (i < BUFLEN - 1)
+            {
+                char c = (char) file.get();
+                if (file.eof())
+                    break;
+
+                out[i] = c;
+                ++i;
+            }
+
+            uint16_t length = i - 3;
+            sock.send(SFTP::ccPut(out, length), out); // Modifies buffer as opposed to copying it
+        }
+    }
+
 }
 
 void localPwd(const std::string& localDir)
@@ -357,6 +398,24 @@ std::string getExecPath()
   return path;
 }
 
+void helpMenu()
+{
+    LOGGER::Log("toggle                 switches between local and remote mode");
+    LOGGER::Log("pwd                    prints working directory of current mode");
+    LOGGER::Log("ls                     shows files in directory of current mode");
+    LOGGER::Log("cd <path>              changes working directory of current mode");
+    LOGGER::Log("mkdir <name>           creates new directory with name 'name' in current mode");
+    LOGGER::Log("");
+    LOGGER::Log("grab <path>            downloads file from path on remote machine to current directory on local machine");
+    LOGGER::Log("                       only available in remote mode");
+    LOGGER::Log("put <path>             uploads file from path on local machine to current directory on remote machine");
+    LOGGER::Log("                       only available in local mode");
+    LOGGER::Log("");
+    LOGGER::Log("clear                  clears the console");
+    LOGGER::Log("help                   displays this message");
+    LOGGER::Log("exit                   close connection and exit program");
+}
+
 int main(int argc, char** argv)
 {
     std::string username;
@@ -364,7 +423,6 @@ int main(int argc, char** argv)
     std::string localDir = getExecPath();
 
     int mode = REMOTE;
-    // TODO update all commands so that they work with their appropriate mode 
 
     ClientSocket sock("127.0.0.1", PORT);
 
@@ -448,7 +506,9 @@ int main(int argc, char** argv)
                 LOGGER::LogError("the put command is only valid in LOCAL mode");
                 break;
             }
-            sendFile(sock);
+
+            LOGGER::Log("Sending file: " + cmd[1]); 
+            // sendFile(sock, localDir, cmd[1]);
             break;
         case L_MKDIR:
             if (mode == REMOTE)
@@ -462,6 +522,12 @@ int main(int argc, char** argv)
             break;
         case L_TOGGLE:
             mode = (mode == LOCAL) ? REMOTE : LOCAL;
+            break;
+        case L_CLEAR:
+            system("clear");
+            break;
+        case L_HELP:
+            helpMenu();
             break;
         case L_EXIT:
             LOGGER::Log("bye");

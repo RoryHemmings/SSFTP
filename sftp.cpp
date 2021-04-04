@@ -145,13 +145,41 @@ size_t SFTP::ccGrab(char* out, const std::string& path)
     out[0] = GRAB;
     len += 1;
 
-    strncpy(out+len, path.c_str(), BUFLEN);
-    len += min(path.size(), (size_t) BUFLEN);
+    size_t maxStrLen = BUFLEN - 2; // buffer length - status and termination
+    strncpy(out+len, path.c_str(), maxStrLen);
+    len += min(path.size(), maxStrLen);
 
     out[len] = '\0';
     len += 1;
 
     return len;
+}
+
+size_t SFTP::ccPutPrimary(char* out, uint32_t totalPackets, const std::string& path)
+{
+    clearBuffer(BUFLEN, out);
+
+    size_t len = 0;
+    size_t numReservedBytes = 2 + sizeof(totalPackets);
+
+    out[0] = PUTF;
+    len += 1;
+
+    memcpy(out+len, &totalPackets, sizeof(totalPackets));
+    len += sizeof(totalPackets);
+
+    strncpy(out+len, path.c_str(), BUFLEN - numReservedBytes);
+    len += min(path.size(), (size_t) BUFLEN - numReservedBytes);
+
+    out[len] = '\0';
+    len += 1;
+
+    return len;
+}
+
+size_t SFTP::ccPut(char* out, uint16_t dataLength)
+{
+    
 }
 
 size_t SFTP::crPwd(char* out, const string& currentDir)
@@ -229,7 +257,7 @@ size_t SFTP::crGrabPrimary(char* out, uint32_t totalPackets, const std::string& 
 {
     clearBuffer(BUFLEN, out);
 
-    size_t numReservedBytes = 6;
+    size_t numReservedBytes = 2 + sizeof(totalPackets); // status, termination, length
     size_t len = 0; 
 
     out[0] = SUCCESS;
@@ -269,6 +297,11 @@ size_t SFTP::crGrab(char* out, uint16_t dataLength)
     len += 1;
     
     return len;
+}
+
+size_t SFTP::crPut(char* out, const std::string& path)
+{
+    
 }
 
 size_t SFTP::createSuccessResponse(char* out)
