@@ -43,6 +43,7 @@ enum L_COMMAND
     L_GRAB,
     L_PUT,
     L_MKDIR,
+    L_RM,
     L_TOGGLE,
     L_CLEAR,
     L_HELP,
@@ -89,6 +90,9 @@ void error(int8_t code)
     case SFTP::FAILED_TO_OPEN_FILE:
         LOGGER::LogError("Couldn't open file");
         break;
+    case SFTP::ACCESS_DENIED:
+        LOGGER::LogError("Access Denied");
+        break;
     case L_INVALID_COMMAND:
         LOGGER::LogError("Invalid Command");
         break;
@@ -114,6 +118,7 @@ L_COMMAND resolveCommand(const std::string& cmd)
         { "grab", L_GRAB },
         { "put", L_PUT },
         { "mkdir", L_MKDIR },
+        { "rm", L_RM },
         { "toggle", L_TOGGLE },
         { "clear", L_CLEAR },
         { "help", L_HELP },
@@ -241,16 +246,12 @@ void parseLs(ClientSocket& sock)
 void parseCd(ClientSocket& sock, std::string& remoteDir)
 {
     sock.recv(in);
-    if (checkStatus())
-    {
-        std::string newPath(in+1);
-        remoteDir = newPath;
-    }
-    else 
-    {
-        // Error was already handled by checkStatus()
+    if (!checkStatus()) // Handles errors
         return;
-    }
+
+    std::string newPath(in+1);
+    remoteDir = newPath;
+    
 }
 
 void parseGrab(ClientSocket& sock, std::string outputDir)
@@ -314,6 +315,20 @@ void parseGrab(ClientSocket& sock, std::string outputDir)
     outfile.close();
 }
 
+void parseMkDir(ClientSocket& sock)
+{
+    sock.recv(in); 
+    if (!checkStatus())
+        return;
+
+    LOGGER::Log(std::string(in+1), LOGGER::COLOR::WHITE, false);
+}
+
+void parseRm(ClientSocket& sock)
+{
+
+}
+
 void sendFile(ClientSocket& sock, const std::string& localDir, const std::string& filePath)
 {
     std::string path;
@@ -369,6 +384,11 @@ void localLs(const std::string& localDir)
     ret = exec("ls -la " + localDir);
 
     LOGGER::Log(ret);
+}
+
+void localRm(const std::string& path)
+{
+
 }
 
 void changeLocalDirectory(std::string& localDir, const std::string& path)
@@ -511,6 +531,17 @@ int main(int argc, char** argv)
             // sendFile(sock, localDir, cmd[1]);
             break;
         case L_MKDIR:
+            if (mode == REMOTE)
+            {
+                sock.send(SFTP::ccMkDir(out, cmd[1]), out);
+                parseMkDir(sock);
+            }
+            else
+            {
+
+            }
+            break;
+        case L_RM:
             if (mode == REMOTE)
             {
 

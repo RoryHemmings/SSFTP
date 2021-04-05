@@ -20,6 +20,7 @@ COMMAND SFTP::resolveCommand(const char cmd)
         { 0x07, GRAB },
         { 0x08, PUTF },
         { 0x09, COPY },
+        { 0x10, MDIR },
     };
 
     uint8_t val = (uint8_t)cmd;
@@ -31,6 +32,25 @@ COMMAND SFTP::resolveCommand(const char cmd)
     // TODO figure out how to return safely
     LOGGER::LogError("Invalid Protocol Command");
     exit(1);
+}
+
+size_t createStringSandwich(char* out, uint8_t cmd, const std::string& arg)
+{
+    clearBuffer(BUFLEN, out);
+
+    size_t len = 0;
+    size_t numReservedBytes = 2; // Status byte and termination
+
+    out[0] = cmd;
+    len += 1;
+
+    strncpy(out+len, arg.c_str(), BUFLEN - numReservedBytes);
+    len += min(arg.size(), (size_t) BUFLEN - numReservedBytes);
+
+    out[len] = '\0';
+    len += 1;
+
+    return len;
 }
 
 size_t SFTP::ccUser(char* out, const string& username, const string& password)
@@ -182,6 +202,17 @@ size_t SFTP::ccPut(char* out, uint16_t dataLength)
     
 }
 
+size_t SFTP::ccMkDir(char* out, const std::string& name)
+{
+    return createStringSandwich(out, MDIR, name);
+}
+
+size_t SFTP::ccRm(char* out, const std::string& path)
+{
+    // TODO Fix all of the previous request function inconsistencies
+    // TODO make all of the commands that execute shell commands return the result of the shell command
+}
+
 size_t SFTP::crPwd(char* out, const string& currentDir)
 {
     clearBuffer(BUFLEN, out);
@@ -302,6 +333,11 @@ size_t SFTP::crGrab(char* out, uint16_t dataLength)
 size_t SFTP::crPut(char* out, const std::string& path)
 {
     
+}
+
+size_t SFTP::crMkDir(char* out, const std::string& output)
+{
+    return createStringSandwich(out, SUCCESS, output);
 }
 
 size_t SFTP::createSuccessResponse(char* out)

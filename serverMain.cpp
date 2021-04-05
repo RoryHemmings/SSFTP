@@ -170,10 +170,28 @@ size_t changeUserDirectory(Socket* client)
     // Check that path is within access bubble
     std::string::size_type homeDirLen = user->homeDir.size();
     if (newPath.substr(0, homeDirLen) != user->homeDir)
-        finalPath = user->homeDir;
+        return SFTP::createFailureResponse(out, SFTP::ACCESS_DENIED);
 
     user->currentDir = finalPath;
     return SFTP::crCd(out, finalPath);
+}
+
+size_t createDirectory(Socket* client, const std::string& name)
+{
+    User* user = getUserByClient(client);
+    if (user == NULL)
+        return SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN);
+
+    std::string path = generateNewPath(user->currentDir, name);
+
+    // Check that path is within access bubble
+    std::string::size_type homeDirLen = user->homeDir.size();
+    if (path.substr(0, homeDirLen) != user->homeDir)
+        return SFTP::createFailureResponse(out, SFTP::ACCESS_DENIED);
+    
+    std::string ret = exec("mkdir -p " + path);
+    
+    return SFTP::crMkDir(out, ret);
 }
 
 // Takes string for file path to prevent buffer issues
@@ -263,6 +281,8 @@ size_t handleCommand(Socket* client)
         return 0;
     case SFTP::CDIR: // sync
         return changeUserDirectory(client);
+    case SFTP::MDIR: // sync
+        return createDirectory(client, std::string(in+1));
     case SFTP::GRAB: // async
         temp = std::async(std::launch::async, &grabFile, client, std::string(in+1));
         return 0;

@@ -30,6 +30,7 @@ enum COMMAND
     GRAB = 0x07, // 0000 0111
     PUTF = 0x08, // 0000 1000
     COPY = 0x09, // 0000 1001
+    MDIR = 0x10, // 0000 1010
 };
 
 enum RESPONSE
@@ -49,7 +50,8 @@ enum SFTP_ERROR
     INVALID_CLIENT_RESPONSE = 7,
     COMMAND_EXECUTION_FAILED = 8,
     INVALID_PATH = 9,
-    FAILED_TO_OPEN_FILE = 10
+    FAILED_TO_OPEN_FILE = 10,
+    ACCESS_DENIED = 11
 };
 
 COMMAND resolveCommand(const char cmd);
@@ -64,6 +66,8 @@ size_t ccCd(char* out, const std::string& path);
 size_t ccGrab(char* out, const std::string& path);
 size_t ccPutPrimary(char* out, uint32_t totalPackets, const std::string& path);
 size_t ccPut(char* out, uint16_t dataLength);
+size_t ccMkDir(char* out, const std::string& name);
+size_t ccRm(char* out, const std::string& path);
 
 /*
  * Response Factories (used by server)
@@ -76,6 +80,7 @@ size_t crCd(char* out, const std::string& finalPath);
 size_t crGrabPrimary(char* out, uint32_t totalPackets, const std::string& path);
 size_t crGrab(char* out, uint16_t dataLength);
 size_t crPut(char* out, const std::string& path);
+size_t crMkDir(char* out, const std::string& output);
 
 /*
  * Stock Response Factories (used by server)
