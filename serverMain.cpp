@@ -116,7 +116,7 @@ size_t printWorkingDirectory(Socket* client)
     return SFTP::crPwd(out, user->currentDir);
 }
 
-void listDirectory(Socket* client)
+void listDirectory(Socket* client, const std::string& path)
 {
     // Temporary buffers so that the async buffer doesn't share with the sync one
     char tempIn[BUFLEN];
@@ -129,7 +129,16 @@ void listDirectory(Socket* client)
         return;
     }
 
-    std::string ret = exec("ls -la " + user->currentDir);
+    std::string finalPath = generateNewPath(user->currentDir, path);
+
+    std::string::size_type homeDirLen = user->homeDir.size();
+    if (finalPath.substr(0, homeDirLen) != user->homeDir)
+    {
+        client->send(SFTP::createFailureResponse(tempOut, SFTP::ACCESS_DENIED), tempOut);
+        return;
+    }
+
+    std::string ret = exec("ls -la " + finalPath);
     if (ret.size() == 0)
     {
         client->send(SFTP::createFailureResponse(tempOut, SFTP::COMMAND_EXECUTION_FAILED), tempOut);
@@ -277,7 +286,7 @@ size_t handleCommand(Socket* client)
         // Returns length of output buffer
         return printWorkingDirectory(client);
     case SFTP::LIST: // async
-        temp = std::async(std::launch::async, &listDirectory, client);
+        temp = std::async(std::launch::async, &listDirectory, client, std::string(in+1));
         return 0;
     case SFTP::CDIR: // sync
         return changeUserDirectory(client);

@@ -72,16 +72,16 @@ size_t SFTP::ccUser(char* out, const string& username, const string& password)
         return -1;
 
     // Set 2 username length bytes
-    memcpy(out+len, &usernameLength, 2);
-    len += 2;
+    memcpy(out+len, &usernameLength, sizeof(usernameLength));
+    len += sizeof(usernameLength);
 
     passwordLength = password.size();
     if (passwordLength > 512) // Password exceeds max length
         return -2;
 
     // Set 2 password length bytes
-    memcpy(out+len, &passwordLength, 2);
-    len += 2;
+    memcpy(out+len, &passwordLength, sizeof(passwordLength));
+    len += sizeof(passwordLength);
 
     /*
      * Data
@@ -124,55 +124,19 @@ size_t SFTP::ccPwd(char* out)
     return len;
 }
 
-size_t SFTP::ccLs(char* out)
+size_t SFTP::ccLs(char* out, const std::string& path)
 {
-    clearBuffer(BUFLEN, out);
-    size_t len = 0;
-
-    out[0] = LIST;
-    len += 1;
-
-    out[len] = '\0';
-    len += 1;
-
-    return len;
+    return createStringSandwich(out, LIST, path);
 }
 
 size_t SFTP::ccCd(char* out, const string& path)
 {
-    clearBuffer(BUFLEN, out);
-    size_t len = 0;
-
-    out[0] = CDIR;
-    len += 1;
-
-    strncpy(out+len, path.c_str(), BUFLEN);
-    len += min(path.size(), (size_t) BUFLEN);
-
-    /* ensure that null termination is added to
-       prevent buffer overflows */
-    out[len] = '\0';
-    len += 1;
-    
-    return len;
+    return createStringSandwich(out, CDIR, path);
 }
 
 size_t SFTP::ccGrab(char* out, const std::string& path)
 {
-    clearBuffer(BUFLEN, out);
-    size_t len = 0;
-
-    out[0] = GRAB;
-    len += 1;
-
-    size_t maxStrLen = BUFLEN - 2; // buffer length - status and termination
-    strncpy(out+len, path.c_str(), maxStrLen);
-    len += min(path.size(), maxStrLen);
-
-    out[len] = '\0';
-    len += 1;
-
-    return len;
+    return createStringSandwich(out, GRAB, path);
 }
 
 size_t SFTP::ccPutPrimary(char* out, uint32_t totalPackets, const std::string& path)
@@ -199,7 +163,7 @@ size_t SFTP::ccPutPrimary(char* out, uint32_t totalPackets, const std::string& p
 
 size_t SFTP::ccPut(char* out, uint16_t dataLength)
 {
-    
+    return 0;    
 }
 
 size_t SFTP::ccMkDir(char* out, const std::string& name)
@@ -209,27 +173,13 @@ size_t SFTP::ccMkDir(char* out, const std::string& name)
 
 size_t SFTP::ccRm(char* out, const std::string& path)
 {
-    // TODO Fix all of the previous request function inconsistencies
-    // TODO make all of the commands that execute shell commands return the result of the shell command
+    // implement touch and rm commands (return result to user)
+    return 0;
 }
 
 size_t SFTP::crPwd(char* out, const string& currentDir)
 {
-    clearBuffer(BUFLEN, out);
-    size_t len = 0;
-
-    out[0] = SUCCESS;
-    len += 1;
-
-    strncpy(out+len, currentDir.c_str(), BUFLEN);
-    len += min(currentDir.size(), (size_t) BUFLEN);
-
-    /* Make sure that null termination is added
-       in case that ls content len goes over BUFLEN */
-    out[len] = '\0';
-    len += 1;
-
-    return len;
+    return createStringSandwich(out, SUCCESS, currentDir);
 }
 
 size_t SFTP::crLsPrimary(char* out, uint32_t totalPackets)
@@ -251,6 +201,7 @@ size_t SFTP::crLsPrimary(char* out, uint32_t totalPackets)
 
 size_t SFTP::crLs(char* out, const string& data)
 {
+    /*
     clearBuffer(BUFLEN, out);
     size_t len = 0;
 
@@ -264,24 +215,13 @@ size_t SFTP::crLs(char* out, const string& data)
     len += 1;
 
     return len;
+    */
+    return createStringSandwich(out, SUCCESS, data);
 }
 
 size_t SFTP::crCd(char* out, const string& finalPath)
 {
-    clearBuffer(BUFLEN, out);
-    size_t numReservedBytes = 2;
-    size_t len = 0;
-
-    out[0] = SUCCESS;
-    len += 1;
-
-    strncpy(out+len, finalPath.c_str(), BUFLEN - numReservedBytes);
-    len += min(finalPath.size(), (size_t) BUFLEN - numReservedBytes);
-
-    out[len] = '\0';
-    len += 1;
-
-    return len;
+   return createStringSandwich(out, SUCCESS, finalPath);
 }
 
 size_t SFTP::crGrabPrimary(char* out, uint32_t totalPackets, const std::string& path)
@@ -332,7 +272,7 @@ size_t SFTP::crGrab(char* out, uint16_t dataLength)
 
 size_t SFTP::crPut(char* out, const std::string& path)
 {
-    
+    return 0;
 }
 
 size_t SFTP::crMkDir(char* out, const std::string& output)
@@ -376,5 +316,4 @@ size_t SFTP::createFailureResponse(char* out, uint8_t code)
 
     return len;
 }
-
 

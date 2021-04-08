@@ -140,9 +140,10 @@ std::string authenticateConnection(ClientSocket& sock)
 {
     clearBuffers(BUFLEN, in, out);
 
-    std::string username;
-    std::string password;
+    std::string username = "rory";
+    std::string password = "kalikali";
 
+    /*
     LOGGER::Log("Enter username for ", LOGGER::COLOR::MAGENTA, false);
     LOGGER::Log(username, LOGGER::COLOR::CYAN, false);
     LOGGER::Log(": ", LOGGER::COLOR::MAGENTA, false);
@@ -152,6 +153,7 @@ std::string authenticateConnection(ClientSocket& sock)
     LOGGER::Log(username, LOGGER::COLOR::CYAN, false);
     LOGGER::Log(": ", LOGGER::COLOR::MAGENTA, false);
     getline(std::cin, password);
+    */
 
     // hexDump("UserBuffer", out, 100);
     sock.send(SFTP::ccUser(out, username, password), out);
@@ -211,30 +213,24 @@ void parseLs(ClientSocket& sock)
     // Get primary information
     sock.recv(in);
 
-    if (checkStatus()) // Handles errors
-    {
-        // Get the uint32_t value: end
-        memcpy(&end, in+1, 4);
-
-        clearBuffers(BUFLEN, in, out);
-    }
+    if (!checkStatus()) // Handles errors
+        return;
+    
+    // Get the uint32_t value: end
+    memcpy(&end, in+1, 4);
+    clearBuffers(BUFLEN, in, out);
 
     do
     {
         // Get secondary information
         sock.recv(in);
 
-        if (checkStatus()) // Handles errors
-        {
-            // Append output to output string
-            output += std::string(in+1);
-            clearBuffers(BUFLEN, in, out);
-        }
-        else 
-        {
-            // Error was already handled by checkStatus()
+        if (!checkStatus())
             return;
-        }
+        
+        // Append output to output string
+        output += std::string(in+1);
+        clearBuffers(BUFLEN, in, out);
 
         ++index;
     }
@@ -262,16 +258,16 @@ void parseGrab(ClientSocket& sock, std::string outputDir)
     // Get primary information
     sock.recv(in);
 
-    if (checkStatus()) // Handles errors
-    {
-        char* outPath;
+    if (!checkStatus()) // Handles errors
+        return;
 
-        // Get the uint32_t value: end
-        memcpy(&end, in+1, 4);
-        path = std::string(in+5);
+    char* outPath;
 
-        clearBuffers(BUFLEN, in, out);
-    }
+    // Get the uint32_t value: end
+    memcpy(&end, in+1, 4);
+    path = std::string(in+5);
+
+    clearBuffers(BUFLEN, in, out);
 
     std::ofstream outfile;
     outfile.open(outputDir + "/" + path, std::ios::binary);
@@ -289,22 +285,17 @@ void parseGrab(ClientSocket& sock, std::string outputDir)
         // Get secondary information
         sock.recv(in);
 
-        if (checkStatus()) // Handles errors
-        {
-            // Append output to output string
-            uint16_t length;
-            memcpy(&length, in+1, 2);
-
-            LOGGER::Log("#", LOGGER::COLOR::WHITE, false);
-            outfile.write(in+3, length);
-
-            clearBuffers(BUFLEN, in, out);
-        }
-        else 
-        {
-            // Error was already handled by checkStatus()
+        if (!checkStatus()) // Handles errors
             return;
-        }
+        
+        // Append output to output string
+        uint16_t length;
+        memcpy(&length, in+1, 2);
+
+        LOGGER::Log("#", LOGGER::COLOR::WHITE, false);
+        outfile.write(in+3, length);
+
+        clearBuffers(BUFLEN, in, out);
 
         ++index;
     }
@@ -378,12 +369,18 @@ void localPwd(const std::string& localDir)
     LOGGER::Log(localDir);
 }
 
-void localLs(const std::string& localDir)
+void localLs(const std::string& localDir, const std::string& path)
 {
-    std::string ret;
-    ret = exec("ls -la " + localDir);
+    std::string finalPath = generateNewPath(localDir, path);
 
-    LOGGER::Log(ret);
+    LOGGER::Log(exec("ls -la " + finalPath), LOGGER::COLOR::WHITE, false);
+}
+
+void localMkDir(const std::string& localDir, const std::string& path)
+{
+    std::string finalPath = generateNewPath(localDir, path);
+
+    LOGGER::Log(exec("mkdir " + finalPath), LOGGER::COLOR::WHITE, false);
 }
 
 void localRm(const std::string& path)
@@ -442,9 +439,11 @@ int main(int argc, char** argv)
     std::string remoteDir;
     std::string localDir = getExecPath();
 
+    std::string addr = "127.0.0.1";
+
     int mode = REMOTE;
 
-    ClientSocket sock("127.0.0.1", PORT);
+    ClientSocket sock(addr, PORT);
 
     sock.recv(in);
     if (in[0] == SFTP::SUCCESS)
@@ -461,9 +460,9 @@ int main(int argc, char** argv)
         clearBuffers(BUFLEN, in, out);
 
         if (mode == LOCAL)
-            LOGGER::Log("(LOCAL) " + localDir + "$ ", LOGGER::COLOR::GREEN, false);
+            LOGGER::Log("[" + addr + "] (LOCAL) " + localDir + "$ ", LOGGER::COLOR::GREEN, false);
         else
-            LOGGER::Log("(REMOTE) " + remoteDir + "$ ", LOGGER::COLOR::RED, false);
+            LOGGER::Log("[" + addr + "] (REMOTE) " + remoteDir + "$ ", LOGGER::COLOR::RED, false);
 
         getline(std::cin, input);
 
@@ -482,13 +481,27 @@ int main(int argc, char** argv)
 
             break;
         case L_LS:
+            if (cmd.size() > 2)
+            {
+                LOGGER::Log("Usage: ls <path>");
+                break;
+            }
             if (mode == REMOTE)
             {
-                sock.send(SFTP::ccLs(out), out);
+                if (cmd.size() == 2)
+                    sock.send(SFTP::ccLs(out, cmd[1]), out);
+                else
+                    sock.send(SFTP::ccLs(out, ""), out);
+
                 parseLs(sock);
             }
             else
-                localLs(localDir);
+            {
+                if (cmd.size() == 2)
+                    localLs(localDir, cmd[1]);
+                else
+                    localLs(localDir, "");
+            }
 
             break;
         case L_CDIR:
@@ -531,6 +544,11 @@ int main(int argc, char** argv)
             // sendFile(sock, localDir, cmd[1]);
             break;
         case L_MKDIR:
+            if (cmd.size() != 2)
+            {
+                LOGGER::Log("Usage: mkdir <path>");
+                break;
+            }
             if (mode == REMOTE)
             {
                 sock.send(SFTP::ccMkDir(out, cmd[1]), out);
@@ -538,7 +556,7 @@ int main(int argc, char** argv)
             }
             else
             {
-
+                localMkDir(localDir, cmd[1]);
             }
             break;
         case L_RM:

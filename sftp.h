@@ -61,7 +61,7 @@ COMMAND resolveCommand(const char cmd);
  */
 size_t ccUser(char* out, const std::string& username, const std::string& password);
 size_t ccPwd(char* out);
-size_t ccLs(char* out);
+size_t ccLs(char* out, const std::string& path);
 size_t ccCd(char* out, const std::string& path);
 size_t ccGrab(char* out, const std::string& path);
 size_t ccPutPrimary(char* out, uint32_t totalPackets, const std::string& path);
