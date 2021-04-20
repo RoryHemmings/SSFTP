@@ -1,116 +1,4 @@
-/*
- *
- * SSFTP Server
- * Author Rory Hemmings
- *
- */
-
-#include <iostream>
-#include <string>
-#include <algorithm>
-#include <cstdint>
-#include <cstdio>
-#include <cstring>
-#include <future>
-#include <map>
-#include <cmath>
-#include <fstream>
-
-#include <unistd.h>
-#include <limits.h>
-#include <pwd.h>
-#include <sys/stat.h>
-#include <shadow.h>
-
-#include "sftp.h"
-#include "logger.h"
-#include "socket.h"
 #include "connection.h"
-#include "utils.h"
-
-/* Even though global variables are generally considered bad
- * practice in many situations, it is by far the most simple
- * and efficient way of doing things for this situation
- */
-char in[BUFLEN];
-char out[BUFLEN];
-
-//struct User
-//{
-    //std::string username;
-    //std::string homeDir;
-    //std::string currentDir;
-//};
-
-// All currently logged in users
-// std::map<Socket*, User> users;
-
-// Vector of all current connections
-// Pointers so that threads dont get copied
-std::vector<Connection*> connections;
-
-//size_t checkPassword(Socket* client)
-//{
-    //char *encrypted, *p;
-    //struct passwd *pwd;
-    //struct spwd *spwd;
-    //uint16_t usernameLength, passwordLength;
-
-    //// Get username and password lengths (2 bytes long)
-    //memcpy(&usernameLength, in+1, 2);
-    //memcpy(&passwordLength, in+3, 2);
-
-    //std::string username(in+5, usernameLength);
-    //std::string password(in+5 + usernameLength, passwordLength);
-
-    //pwd = getpwnam(username.c_str());
-    //if (pwd == NULL)
-        //return SFTP::createFailureResponse(out, SFTP::INVALID_USER);
-
-    //spwd = getspnam(username.c_str());
-    //if (spwd == NULL && errno == EACCES)
-    //{
-        //LOGGER::LogError("No Access to Shadow file");
-        //return SFTP::createFailureResponse(out, SFTP::MISC_ERROR);
-    //}
-
-    //if (spwd != NULL)           // If there is a shadow password record
-        //pwd->pw_passwd = spwd->sp_pwdp;     // Use the shadow password
-
-    //encrypted = crypt(password.c_str(), pwd->pw_passwd);
-    //if (encrypted == NULL)
-    //{
-        //LOGGER::LogError("crpyt() failed");
-        //return SFTP::createFailureResponse(out, SFTP::MISC_ERROR);
-    //}
-
-    //bool authOk = strcmp(encrypted, pwd->pw_passwd) == 0;
-    //if (!authOk)
-        //return SFTP::createFailureResponse(out, SFTP::INVALID_PASSWORD);
-
-    //// Login Successful
-    //users[client] = { username, pwd->pw_dir, pwd->pw_dir };
-    //LOGGER::DebugLog(client->Name() + " Successfully Logged in user: " + username);
-
-    //return SFTP::createSuccessResponse(out);
-//}
-
-//User* getUserByClient(Socket* client)
-//{
-    //auto iter = users.find(client);
-    //if (iter == users.end())
-        //return NULL;
-
-    //return &(iter->second);
-//}
-
-//bool checkStatus()
-//{
-    //if (in[0] == SFTP::SUCCESS)
-        //return true;
-
-    //return false;
-//}
 
 //size_t printWorkingDirectory(Socket* client)
 //{
@@ -308,80 +196,87 @@ std::vector<Connection*> connections;
     //return SFTP::createFailureResponse(out, SFTP::INVALID_COMMAND);
 //}
 
-//void listen(ServerSocket& serverSocket)
+//size_t handleCommand(Socket* client)
 //{
-    //Socket* client;
-    //size_t len = 0;
+    //// prevents async from going out of scope and blocking
+    //static std::future<void> temp;
 
-    //while (true)
+    //switch (SFTP::resolveCommand(in[0]))
     //{
-        //// Listens for activity on sockets
-        //// will automatically handle new clients before returning
-        //client = serverSocket.recv(in);
-
-        /* To handle communications that take more than one 
-         * stage, I will use asynchronous functions whenever a
-         * mutlti stage communication takes place (ie. file transfer
-         * or other long command)
-         *
-         * if handleCommand() returns 0, then it should
-         * just skip over the send command
-         */
-
-        //len = handleCommand(client);
-
-        //[> if request was synchronous <]
-        //if (len > 0)
-            //client->send(len, out);
-
-       //clearBuffers(BUFLEN, in, out);
+    //case SFTP::USER: // sync
+        //// Returns length of output buffer
+        //return checkPassword(client); 
+    //case SFTP::PRWD: // sync
+        //// Returns length of output buffer
+        //return printWorkingDirectory(client);
+    //case SFTP::LIST: // async
+        //temp = std::async(std::launch::async, &listDirectory, client, std::string(in+1));
+        //return 0;
+    //case SFTP::CDIR: // sync
+        //return changeUserDirectory(client);
+    //case SFTP::MDIR: // sync
+        //return createDirectory(client, std::string(in+1));
+    //case SFTP::GRAB: // async
+        //temp = std::async(std::launch::async, &grabFile, client, std::string(in+1));
+        //return 0;
+    //case SFTP::PUTF: // async
+        //temp = std::async(std::launch::async, &receiveFile);
+        //return 0;
     //}
+
+    //return SFTP::createFailureResponse(out, SFTP::INVALID_COMMAND);
 //}
 
-//void onConnect(Socket* client)
-//{
-    //clearBuffer(BUFLEN, out);
-    //LOGGER::Log("Client " + client->Name() + " Established Connection", LOGGER::COLOR::GREEN);
-    //client->send(SFTP::createSuccessResponse(out), out);
-//}
-
-//void onDisconnect(Socket* client)
-//{
-    //auto user = users.find(client);
-    //if (user != users.end())
-        //users.erase(user);
-
-    //LOGGER::Log("Client disconnected: " + client->Name(), LOGGER::COLOR::YELLOW);
-//}
-//
-void listen(ServerSocket& server)
+Connection::Connection(Socket* sock)
+    : sock(sock)
+    , buf(NULL)
+    , running(true)
+    , t(&Connection::listen, this)
 {
-    LOGGER::DebugLog("Waiting for Clients...");
-    while (true)
-    {
-        Socket* client;
 
-        client = server.accept();
-        if (client < 0)
-            LOGGER::LogError("Coundn't accept connection");
-
-        Connection connection(client);
-        connections.push_back(&connection);
-
-        // These lines break everything for some reason
-        // LOGGER::Log("Client " + client->Name() + " Established Connection", LOGGER::COLOR::GREEN);
-        // std::cout << "Number of Connections: " << connections.size() << std::endl;
-    }
-
-    // TODO maybe add cmd interface for server running on a seperate thread
 }
 
-int main(int argc, char** argv)
+Connection::~Connection()
 {
-    ServerSocket serverSocket("127.0.0.1", PORT);
-    listen(serverSocket);
+    close();
 
-    // serverSocket.close();
-    return 0;
+    delete sock;
+    delete[] buf;
+}
+
+void Connection::listen()
+{
+    // mut.lock();
+
+    running = true;
+    buf = new char[BUFLEN];
+    sock->send(SFTP::createSuccessResponse(buf), buf);
+
+    // running = true;
+    std::cout << running << std::endl;
+    while (running)
+    {
+        clearBuffer(BUFLEN, buf);
+        sock->recv(buf);
+        std::cout << "Incoming Transmition from " << sock->Name() << std::endl;
+        std::cout << buf << std::endl;
+
+        sock->sendLine(std::string(buf));
+        // TODO worry about disconnecting
+        // TODO and worry about the program closing
+        // TODO delete connection objects and make sure that everything gets cleaned up in serverMain
+
+        // handleCommand();
+    }
+
+    // mut.unlock();
+}
+
+void Connection::close()
+{
+    running = false;
+    t.join();
+
+    sock->close();
 }
 

@@ -32,6 +32,8 @@ public:
     void send(size_t len, const char* data) const;
     void sendLine(const std::string&) const;
 
+    void recv(char* buffer, size_t len=BUFLEN) const;
+
     // Facilitates conversion from Socket to socket_fd
     operator int() const;
 
@@ -59,7 +61,7 @@ class ClientSocket : public Socket
 public:
     explicit ClientSocket(const std::string& address, int port);
 
-    void recv(char* buffer, size_t len=BUFLEN) const;
+    // void recv(char* buffer, size_t len=BUFLEN) const;
     std::string recvLine(size_t len=BUFLEN) const;
 
 };
@@ -68,21 +70,26 @@ class ServerSocket : public Socket
 {
 
 public:
+    /*
     explicit ServerSocket(const std::string& adress, int port,
                           void (*onConnect)(Socket*), void (*onDisconnect)(Socket*));
+    */
+    explicit ServerSocket(const std::string& adress, int port);
+    
 
-    Socket* recv(char* buffer, size_t len=BUFLEN);
-    Socket* recvLine(std::string& in, size_t len=BUFLEN);
+    // Socket* recv(char* buffer, size_t len=BUFLEN);
+    // Socket* recvLine(std::string& in, size_t len=BUFLEN);
+    Socket* accept();
 
     /* Does not override Socket::close(), instead it calls it for every socket in
      * the clients vector (before deallocating it) as well as its own socket.
      */
-    void close();
+    // void close();
 
 private:
-    std::vector<Socket*> clients;
-    void (*onConnect)(Socket*);
-    void (*onDisconnect)(Socket*);
+    // std::vector<Socket*> clients;
+    // void (*onConnect)(Socket*);
+    // void (*onDisconnect)(Socket*);
 
 };
 
