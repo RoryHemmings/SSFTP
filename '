@@ -32,8 +32,8 @@
  * practice in many situations, it is by far the most simple
  * and efficient way of doing things for this situation
  */
-// char in[BUFLEN];
-// char out[BUFLEN];
+char in[BUFLEN];
+char out[BUFLEN];
 
 //struct User
 //{
@@ -45,9 +45,9 @@
 // All currently logged in users
 // std::map<Socket*, User> users;
 
-// Keeps track of the loose connections 
+// Vector of all current connections
+// Pointers so that threads dont get copied
 std::vector<Connection*> connections;
-const unsigned int maxConnections = 1024;
 
 //size_t checkPassword(Socket* client)
 //{
@@ -354,54 +354,24 @@ const unsigned int maxConnections = 1024;
     //LOGGER::Log("Client disconnected: " + client->Name(), LOGGER::COLOR::YELLOW);
 //}
 //
-
-void cleanConnections()
-{
-    for (auto it = connections.begin(); it != connections.end(); ++it)
-    {
-        std::cout << "Active: " << (*it)->isActive() << std::endl;
-        if (!(*it)->isActive())
-        {
-            connections.erase(it);
-            delete *it;
-        }
-    }
-}
-
 void listen(ServerSocket& server)
 {
-    char out[BUFLEN];
-
-    LOGGER::DebugLog("Listening for clients...");
+    LOGGER::DebugLog("Waiting for Clients...");
     while (true)
     {
-        Socket* sock;
-        sock = server.accept();
-        if (sock < 0)
+        Socket* client;
+
+        client = server.accept();
+        if (client < 0)
             LOGGER::LogError("Coundn't accept connection");
 
-        if (connections.size() + 1 > maxConnections)
-        {
-            clearBuffer(BUFLEN, out);
-            sock->send(SFTP::createFailureResponse(out, SFTP::SERVER_FULL), out);
-            sock->close();
+        Connection connection(client);
+        connections.push_back(&connection);
 
-            delete sock;
-            continue;
-        }
+        connection.start();
 
-        /* I allocate the Connection object to the heap
-         * so that it doesn't go out of scope and get destroyed
-         */
-        Connection* connection = new Connection(sock);
-        connections.push_back(connection);
-        connection->start();
-
-        // Deletes any inactive connection objects
-        // TODO figure out a better way of doing this
-        cleanConnections();
-
-        LOGGER::Log("Client " + sock->Name() + " Established Connection", LOGGER::COLOR::GREEN);
+        // These lines break everything for some reason
+        LOGGER::Log("Client " + client->Name() + " Established Connection", LOGGER::COLOR::GREEN);
         std::cout << "Number of Connections: " << connections.size() << std::endl;
     }
 

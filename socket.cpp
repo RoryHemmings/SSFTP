@@ -50,9 +50,9 @@ void Socket::sendLine(const string& line) const
     ::send(sock, line.c_str(), line.size() + 1, 0);
 }
 
-void Socket::recv(char* buffer, size_t len) const
+size_t Socket::recv(char* buffer, size_t len) const
 {
-    read(sock, buffer, len);
+    return read(sock, buffer, len);
 }
 
 string Socket::Name() const

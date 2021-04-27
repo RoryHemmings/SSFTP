@@ -2,8 +2,9 @@
 #define SFTP_CONNECTION_H
 
 #include <thread>
+#include <atomic>
 #include <mutex>
-#include <array>
+#include <memory>
 
 #include "socket.h"
 #include "sftp.h"
@@ -23,24 +24,29 @@ public:
     Connection(Socket*);
     ~Connection();
 
+    void start();
     void close();
+
+    bool isActive() const { return running; };
 
 private:
     void listen();
+    void setActive(bool active) { running = active; };
 
 private:
     User user;
     Socket* sock;
 
-    std::thread t;
-    bool running;
+    // Thread stuff
+    std::unique_ptr<std::thread> t;
+    std::atomic<bool> running;
 
     // Buffer
-    char* buf;
-    size_t bufferLength;
+    char* in;
+    char* out;
 
-    std::mutex mut;
-
+    // Mutex
+    std::mutex mtx;
 };
 
 #endif

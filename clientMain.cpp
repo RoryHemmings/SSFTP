@@ -93,6 +93,9 @@ void error(int8_t code)
     case SFTP::ACCESS_DENIED:
         LOGGER::LogError("Access Denied");
         break;
+    case SFTP::SERVER_FULL:
+        LOGGER::LogError("The server is currently full");
+        exit(code);
     case L_INVALID_COMMAND:
         LOGGER::LogError("Invalid Command");
         break;
@@ -461,7 +464,7 @@ int main(int argc, char** argv)
         sock.sendLine(input);
 
         sock.recv(in);
-        std::cout << in << std::endl;
+        std::cout << std::string(in) << std::endl;
     }
 
 //    do

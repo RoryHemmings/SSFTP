@@ -51,7 +51,8 @@ enum SFTP_ERROR
     COMMAND_EXECUTION_FAILED = 8,
     INVALID_PATH = 9,
     FAILED_TO_OPEN_FILE = 10,
-    ACCESS_DENIED = 11
+    ACCESS_DENIED = 11,
+    SERVER_FULL = 12
 };
 
 COMMAND resolveCommand(const char cmd);

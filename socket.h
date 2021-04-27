@@ -32,7 +32,8 @@ public:
     void send(size_t len, const char* data) const;
     void sendLine(const std::string&) const;
 
-    void recv(char* buffer, size_t len=BUFLEN) const;
+    // Returns error code from recv
+    size_t recv(char* buffer, size_t len=BUFLEN) const;
 
     // Facilitates conversion from Socket to socket_fd
     operator int() const;

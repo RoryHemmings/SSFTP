@@ -229,11 +229,13 @@
 
 Connection::Connection(Socket* sock)
     : sock(sock)
-    , buf(NULL)
-    , running(true)
-    , t(&Connection::listen, this)
+    , in(NULL)
+    , out(NULL)
+    , running(false)
+    , t()
 {
-
+    in = new char[BUFLEN];
+    out = new char[BUFLEN];
 }
 
 Connection::~Connection()
@@ -241,41 +243,59 @@ Connection::~Connection()
     close();
 
     delete sock;
-    delete[] buf;
+    delete[] in;
+    delete[] out;
 }
 
 void Connection::listen()
 {
-    // mut.lock();
+    int code;
 
-    running = true;
-    buf = new char[BUFLEN];
-    sock->send(SFTP::createSuccessResponse(buf), buf);
+    clearBuffers(BUFLEN, in, out);
+    sock->send(SFTP::createSuccessResponse(out), out);
 
-    // running = true;
-    std::cout << running << std::endl;
     while (running)
     {
-        clearBuffer(BUFLEN, buf);
-        sock->recv(buf);
-        std::cout << "Incoming Transmition from " << sock->Name() << std::endl;
-        std::cout << buf << std::endl;
+        mtx.lock();
+        clearBuffer(BUFLEN, in);
+        code = sock->recv(in);
+        mtx.unlock();
 
-        sock->sendLine(std::string(buf));
+        // Client disconnected
+        if (code == 0)
+        {
+            // This connection object will be deleted next time a client joins
+            setActive(false);
+
+            LOGGER::Log("Client: " + sock->Name() + " disconnected", LOGGER::COLOR::RED);
+            return;
+        }
+
+        LOGGER::HexDump("recv", in, 100);
+
+        mtx.lock(); 
+        clearBuffer(BUFLEN, out);
+        sock->sendLine("This is epic"); 
+        mtx.unlock();
+
         // TODO worry about disconnecting
         // TODO and worry about the program closing
         // TODO delete connection objects and make sure that everything gets cleaned up in serverMain
 
         // handleCommand();
     }
+}
 
-    // mut.unlock();
+void Connection::start()
+{
+    setActive(true);
+    t = std::make_unique<std::thread>(&Connection::listen, this);
 }
 
 void Connection::close()
 {
-    running = false;
-    t.join();
+    setActive(false);
+    t->join();
 
     sock->close();
 }
