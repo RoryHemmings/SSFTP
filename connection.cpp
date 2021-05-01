@@ -282,8 +282,6 @@ void Connection::listen()
         mtx.unlock();
 
         // TODO and worry about the program closing
-        // TODO everything works unless you open two connections and then close both of them (one stays inside the vector)
-
         // handleCommand();
     }
 }

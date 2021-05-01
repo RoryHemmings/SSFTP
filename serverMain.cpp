@@ -21,6 +21,7 @@
 #include <pwd.h>
 #include <sys/stat.h>
 #include <shadow.h>
+#include <signal.h>
 
 #include "sftp.h"
 #include "logger.h"
@@ -412,12 +413,23 @@ void listen(ServerSocket& server)
     // TODO maybe add cmd interface for server running on a seperate thread
 }
 
+void onExit(int signum)
+{
+    std::cout << std::endl;
+    cleanConnections();
+
+    std::cout << "\nbye" << std::endl;
+    exit(signum);
+}
+
 int main(int argc, char** argv)
 {
+    signal(SIGINT, &onExit);
+
     ServerSocket serverSocket("127.0.0.1", PORT);
     listen(serverSocket);
 
-    // serverSocket.close();
+    serverSocket.close();
     return 0;
 }
 
