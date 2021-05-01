@@ -357,14 +357,19 @@ const unsigned int maxConnections = 1024;
 
 void cleanConnections()
 {
-    for (auto it = connections.begin(); it != connections.end(); ++it)
+    std::vector<Connection*>::size_type i = 0;
+    while (i < connections.size())
     {
-        std::cout << "Active: " << (*it)->isActive() << std::endl;
-        if (!(*it)->isActive())
+        if (!(connections[i]->isActive()))
         {
-            connections.erase(it);
-            delete *it;
+            std::cout << "Deleting: " << connections[i]->Name() << std::endl;
+            Connection* c = connections[i];
+            connections.erase(connections.begin() + i);
+
+            delete c;
+            continue; // Keeps index valid
         }
+        ++i;
     }
 }
 
@@ -379,7 +384,7 @@ void listen(ServerSocket& server)
         sock = server.accept();
         if (sock < 0)
             LOGGER::LogError("Coundn't accept connection");
-
+        
         if (connections.size() + 1 > maxConnections)
         {
             clearBuffer(BUFLEN, out);
@@ -390,17 +395,16 @@ void listen(ServerSocket& server)
             continue;
         }
 
+        // Deletes any inactive connection objects
+        cleanConnections();
+        
         /* I allocate the Connection object to the heap
          * so that it doesn't go out of scope and get destroyed
          */
         Connection* connection = new Connection(sock);
         connections.push_back(connection);
         connection->start();
-
-        // Deletes any inactive connection objects
-        // TODO figure out a better way of doing this
-        cleanConnections();
-
+        
         LOGGER::Log("Client " + sock->Name() + " Established Connection", LOGGER::COLOR::GREEN);
         std::cout << "Number of Connections: " << connections.size() << std::endl;
     }

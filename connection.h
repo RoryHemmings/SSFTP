@@ -28,6 +28,7 @@ public:
     void close();
 
     bool isActive() const { return running; };
+    std::string Name() const { return sock->Name(); }
 
 private:
     void listen();

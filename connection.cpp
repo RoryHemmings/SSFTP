@@ -240,11 +240,14 @@ Connection::Connection(Socket* sock)
 
 Connection::~Connection()
 {
-    close();
+    mtx.lock();
 
+    close();
     delete sock;
     delete[] in;
     delete[] out;
+
+    mtx.unlock();
 }
 
 void Connection::listen()
@@ -278,9 +281,8 @@ void Connection::listen()
         sock->sendLine("This is epic"); 
         mtx.unlock();
 
-        // TODO worry about disconnecting
         // TODO and worry about the program closing
-        // TODO delete connection objects and make sure that everything gets cleaned up in serverMain
+        // TODO everything works unless you open two connections and then close both of them (one stays inside the vector)
 
         // handleCommand();
     }
@@ -292,11 +294,17 @@ void Connection::start()
     t = std::make_unique<std::thread>(&Connection::listen, this);
 }
 
+/* Note to self:
+ *
+ * Never try to lock mutexs that are
+ * already locked. It will cause week
+ * long headaches
+ */
 void Connection::close()
 {
     setActive(false);
-    t->join();
 
+    t->join();
     sock->close();
 }
 
