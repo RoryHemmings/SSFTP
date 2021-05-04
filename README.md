@@ -6,10 +6,7 @@ General Notes:
 	* asynchronus server handles multiple file transfers at the same time 
 
 Commands Structure
-  * There are two types of commands, sftp commands
-  * which are refered to as commands and local commands
-  * which are refered to as L_COMMANDS. The local are
-  * the commands that are issued by the user via stdin
+There are two types of commands, sftp commands which are refered to as commands and local commands which are refered to as L_COMMANDS. The local are the commands that are issued by the user via stdin.
   * Some commands are async
     - this means that they are multi stage and that 
       they break up their load into mutliple stages
