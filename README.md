@@ -2,17 +2,10 @@
 
 SSFTP (Secure Simple File Transfer Protocol) is an updated file transfer protocol based on the Simple File Transfer Protocol, but with more modern features and using well defined binary packet structure instead of strings. This implementation is an example of how the protocol could be implemented.
 
-General Notes:
-	* asynchronus server handles multiple file transfers at the same time 
+General Notes: asynchronus server handles multiple file transfers at the same time 
 
 Commands Structure
-  * There are two types of commands, sftp commands
-  * which are refered to as commands and local commands
-  * which are refered to as L_COMMANDS. The local are
-  * the commands that are issued by the user via stdin
-  * Some commands are async
-    - this means that they are multi stage and that 
-      they break up their load into mutliple stages
+There are two types of commands, sftp commands which are refered to as commands and local commands which are refered to as L_COMMANDS. The local are the commands that are issued by the user via stdin. Some commands are async meaning that they break up their transfer into multiple stages
 
   - command type: 1 byte
   - header: (different length for each command)
