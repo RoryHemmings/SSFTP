@@ -34,6 +34,9 @@ private:
     void listen();
     void setActive(bool active) { running = active; };
 
+    size_t checkPassword();
+    size_t handleCommand();
+
 private:
     User user;
     Socket* sock;

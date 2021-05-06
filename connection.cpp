@@ -1,3 +1,6 @@
+#include <pwd.h>
+#include <shadow.h>
+
 #include "connection.h"
 
 //size_t printWorkingDirectory(Socket* client)
@@ -227,6 +230,8 @@
     //return SFTP::createFailureResponse(out, SFTP::INVALID_COMMAND);
 //}
 
+
+
 Connection::Connection(Socket* sock)
     : sock(sock)
     , in(NULL)
@@ -248,6 +253,82 @@ Connection::~Connection()
     delete[] out;
 
     mtx.unlock();
+}
+
+// Returns message length
+size_t Connection::checkPassword()
+{
+    char *encrypted, *p;
+    struct passwd *pwd;
+    struct spwd *spwd;
+    uint16_t usernameLength, passwordLength;
+
+    // Get username and password lengths (2 bytes long)
+    memcpy(&usernameLength, in+1, 2);
+    memcpy(&passwordLength, in+3, 2);
+
+    std::string username(in+5, usernameLength);
+    std::string password(in+5 + usernameLength, passwordLength);
+
+    pwd = getpwnam(username.c_str());
+    if (pwd == NULL)
+        return SFTP::createFailureResponse(out, SFTP::INVALID_USER);
+
+    spwd = getspnam(username.c_str());
+    if (spwd == NULL && errno == EACCES)
+    {
+        LOGGER::LogError("No Access to Shadow file");
+        return SFTP::createFailureResponse(out, SFTP::MISC_ERROR);
+    }
+
+    if (spwd != NULL)           // If there is a shadow password record
+        pwd->pw_passwd = spwd->sp_pwdp;     // Use the shadow password
+
+    encrypted = crypt(password.c_str(), pwd->pw_passwd);
+    if (encrypted == NULL)
+    {
+        LOGGER::LogError("crpyt() failed");
+        return SFTP::createFailureResponse(out, SFTP::MISC_ERROR);
+    }
+
+    bool authOk = strcmp(encrypted, pwd->pw_passwd) == 0;
+    if (!authOk)
+        return SFTP::createFailureResponse(out, SFTP::INVALID_PASSWORD);
+
+    // Login Successful
+    user = { username, pwd->pw_dir, pwd->pw_dir };
+    LOGGER::DebugLog(this->Name() + " Successfully Logged in user: " + username);
+
+    return SFTP::createSuccessResponse(out);
+}
+
+// Returns of message length
+size_t Connection::handleCommand()
+{
+    switch (SFTP::resolveCommand(in[0]))
+    {
+    case SFTP::USER:
+        // Returns length of output buffer
+        return checkPassword(); 
+    case SFTP::PRWD:
+        // Returns length of output buffer
+        // return printWorkingDirectory(sock);
+    case SFTP::LIST:
+        // temp = std::async(std::launch::async, &listDirectory, sock, std::string(in+1));
+        return 0;
+    case SFTP::CDIR:
+        // return changeUserDirectory(sock);
+    case SFTP::MDIR:
+        // return createDirectory(sock, std::string(in+1));
+    case SFTP::GRAB:
+        // temp = std::async(std::launch::async, &grabFile, sock, std::string(in+1));
+        return 0;
+    case SFTP::PUTF:
+        // temp = std::async(std::launch::async, &receiveFile);
+        return 0;
+    }
+
+    return SFTP::createFailureResponse(out, SFTP::INVALID_COMMAND);
 }
 
 void Connection::listen()
@@ -278,11 +359,8 @@ void Connection::listen()
 
         mtx.lock(); 
         clearBuffer(BUFLEN, out);
-        sock->sendLine("This is epic"); 
+        sock->send(handleCommand(), out);
         mtx.unlock();
-
-        // TODO and worry about the program closing
-        // handleCommand();
     }
 }
 

@@ -139,6 +139,25 @@ L_COMMAND resolveCommand(const std::string& cmd)
     return INVALID;
 }
 
+/* Returns true if success and false if failure */
+bool checkStatus()
+{
+    if (in[0] == SFTP::SUCCESS)
+    {
+        return true;
+    }
+    else if (in[0] == SFTP::FAILURE)
+    {
+        error(in[1]);
+        return false;
+    }
+    else
+    {
+        error(SFTP::INVALID_RESPONSE);
+        return false;
+    }
+}
+
 std::string authenticateConnection(ClientSocket& sock)
 {
     clearBuffers(BUFLEN, in, out);
@@ -160,34 +179,12 @@ std::string authenticateConnection(ClientSocket& sock)
     sock.send(SFTP::ccUser(out, username, password), out);
     sock.recv(in);
 
-    if (in[0] == SFTP::FAILURE)
+    if (!checkStatus())
     {
-        error(in[1]);
         username = authenticateConnection(sock); // Run recursively until success
     }
 
-    clearBuffers(BUFLEN, in, out);
-
     return username;
-}
-
-/* Returns true if success and false if failure */
-bool checkStatus()
-{
-    if (in[0] == SFTP::SUCCESS)
-    {
-        return true;
-    }
-    else if (in[0] == SFTP::FAILURE)
-    {
-        error(in[1]);
-        return false;
-    }
-    else
-    {
-        error(SFTP::INVALID_RESPONSE);
-        return false;
-    }
 }
 
 void parsePwd(ClientSocket& sock)
@@ -452,154 +449,144 @@ int main(int argc, char** argv)
     else
         error(in[1]);  // Server sent invalid response
 
-    // username = authenticateConnection(sock);
+    username = authenticateConnection(sock);
 
     std::string input;
     size_t len = 0;
     
-    while (true)
+    do
     {
-        clearBuffer(BUFLEN, in);
+        clearBuffers(BUFLEN, in, out);
+
+        if (mode == LOCAL)
+            LOGGER::Log("[" + addr + "] (LOCAL) " + localDir + "$ ", LOGGER::COLOR::GREEN, false);
+        else
+            LOGGER::Log("[" + addr + "] (REMOTE) " + remoteDir + "$ ", LOGGER::COLOR::RED, false);
+
         getline(std::cin, input);
-        sock.sendLine(input);
 
-        sock.recv(in);
-        std::cout << std::string(in) << std::endl;
-    }
+        std::vector<std::string> cmd = split(input);
 
-//    do
-    //{
-        //clearBuffers(BUFLEN, in, out);
+        switch (resolveCommand(cmd[0]))
+        {
+        case L_PWD:
+            if (mode == REMOTE)
+            {
+                sock.send(SFTP::ccPwd(out), out);
+                parsePwd(sock);
+            }
+            else
+                localPwd(localDir);
 
-        //if (mode == LOCAL)
-            //LOGGER::Log("[" + addr + "] (LOCAL) " + localDir + "$ ", LOGGER::COLOR::GREEN, false);
-        //else
-            //LOGGER::Log("[" + addr + "] (REMOTE) " + remoteDir + "$ ", LOGGER::COLOR::RED, false);
+            break;
+        case L_LS:
+            if (cmd.size() > 2)
+            {
+                LOGGER::Log("Usage: ls <path>");
+                break;
+            }
+            if (mode == REMOTE)
+            {
+                if (cmd.size() == 2)
+                    sock.send(SFTP::ccLs(out, cmd[1]), out);
+                else
+                    sock.send(SFTP::ccLs(out, ""), out);
 
-        //getline(std::cin, input);
+                parseLs(sock);
+            }
+            else
+            {
+                if (cmd.size() == 2)
+                    localLs(localDir, cmd[1]);
+                else
+                    localLs(localDir, "");
+            }
 
-        //std::vector<std::string> cmd = split(input);
+            break;
+        case L_CDIR:
+            if (cmd.size() != 2)
+            {
+                LOGGER::Log("Usage: cd <path>");                
+                break;
+            }
+            if (mode == REMOTE)
+            {
+                sock.send(SFTP::ccCd(out, cmd[1]), out);
+                parseCd(sock, remoteDir);
+            }
+            else
+                changeLocalDirectory(localDir, cmd[1]);
 
-        //switch (resolveCommand(cmd[0]))
-        //{
-        //case L_PWD:
-            //if (mode == REMOTE)
-            //{
-                //sock.send(SFTP::ccPwd(out), out);
-                //parsePwd(sock);
-            //}
-            //else
-                //localPwd(localDir);
+            break;
+        case L_GRAB:
+            if (mode != REMOTE)
+            {
+                LOGGER::LogError("the grab command is only valid in REMOTE mode");
+                break;
+            }
+            if (cmd.size() != 2)
+            {
+                LOGGER::Log("Usage: grab <filename>");
+                break;
+            }
+            sock.send(SFTP::ccGrab(out, cmd[1]), out);
+            parseGrab(sock, localDir);
+            break;
+        case L_PUT:
+            if (mode != LOCAL)
+            {
+                LOGGER::LogError("the put command is only valid in LOCAL mode");
+                break;
+            }
 
-            //break;
-        //case L_LS:
-            //if (cmd.size() > 2)
-            //{
-                //LOGGER::Log("Usage: ls <path>");
-                //break;
-            //}
-            //if (mode == REMOTE)
-            //{
-                //if (cmd.size() == 2)
-                    //sock.send(SFTP::ccLs(out, cmd[1]), out);
-                //else
-                    //sock.send(SFTP::ccLs(out, ""), out);
+            LOGGER::Log("Sending file: " + cmd[1]); 
+            // sendFile(sock, localDir, cmd[1]);
+            break;
+        case L_MKDIR:
+            if (cmd.size() != 2)
+            {
+                LOGGER::Log("Usage: mkdir <path>");
+                break;
+            }
+            if (mode == REMOTE)
+            {
+                sock.send(SFTP::ccMkDir(out, cmd[1]), out);
+                parseMkDir(sock);
+            }
+            else
+            {
+                localMkDir(localDir, cmd[1]);
+            }
+            break;
+        case L_RM:
+            if (mode == REMOTE)
+            {
 
-                //parseLs(sock);
-            //}
-            //else
-            //{
-                //if (cmd.size() == 2)
-                    //localLs(localDir, cmd[1]);
-                //else
-                    //localLs(localDir, "");
-            //}
+            }
+            else
+            {
 
-            //break;
-        //case L_CDIR:
-            //if (cmd.size() != 2)
-            //{
-                //LOGGER::Log("Usage: cd <path>");                
-                //break;
-            //}
-            //if (mode == REMOTE)
-            //{
-                //sock.send(SFTP::ccCd(out, cmd[1]), out);
-                //parseCd(sock, remoteDir);
-            //}
-            //else
-                //changeLocalDirectory(localDir, cmd[1]);
+            }
+            break;
+        case L_TOGGLE:
+            mode = (mode == LOCAL) ? REMOTE : LOCAL;
+            break;
+        case L_CLEAR:
+            system("clear");
+            break;
+        case L_HELP:
+            helpMenu();
+            break;
+        case L_EXIT:
+            LOGGER::Log("bye");
+            exit(0);
+        case INVALID:
+            error(L_INVALID_COMMAND);
+            break;
+        }
+    } while(true);
 
-            //break;
-        //case L_GRAB:
-            //if (mode != REMOTE)
-            //{
-                //LOGGER::LogError("the grab command is only valid in REMOTE mode");
-                //break;
-            //}
-            //if (cmd.size() != 2)
-            //{
-                //LOGGER::Log("Usage: grab <filename>");
-                //break;
-            //}
-            //sock.send(SFTP::ccGrab(out, cmd[1]), out);
-            //parseGrab(sock, localDir);
-            //break;
-        //case L_PUT:
-            //if (mode != LOCAL)
-            //{
-                //LOGGER::LogError("the put command is only valid in LOCAL mode");
-                //break;
-            //}
-
-            //LOGGER::Log("Sending file: " + cmd[1]); 
-            //// sendFile(sock, localDir, cmd[1]);
-            //break;
-        //case L_MKDIR:
-            //if (cmd.size() != 2)
-            //{
-                //LOGGER::Log("Usage: mkdir <path>");
-                //break;
-            //}
-            //if (mode == REMOTE)
-            //{
-                //sock.send(SFTP::ccMkDir(out, cmd[1]), out);
-                //parseMkDir(sock);
-            //}
-            //else
-            //{
-                //localMkDir(localDir, cmd[1]);
-            //}
-            //break;
-        //case L_RM:
-            //if (mode == REMOTE)
-            //{
-
-            //}
-            //else
-            //{
-
-            //}
-            //break;
-        //case L_TOGGLE:
-            //mode = (mode == LOCAL) ? REMOTE : LOCAL;
-            //break;
-        //case L_CLEAR:
-            //system("clear");
-            //break;
-        //case L_HELP:
-            //helpMenu();
-            //break;
-        //case L_EXIT:
-            //LOGGER::Log("bye");
-            //exit(0);
-        //case INVALID:
-            //error(L_INVALID_COMMAND);
-            //break;
-        //}
-    //} while(true);
-
-//    sock.close();
+    sock.close();
 
     return 0;
 }

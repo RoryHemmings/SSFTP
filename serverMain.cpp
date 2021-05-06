@@ -426,10 +426,16 @@ int main(int argc, char** argv)
 {
     signal(SIGINT, &onExit);
 
+    /* Although serverSocket is not explicitly closed on SIGINT its memory
+     * will automatically be freed by default when the program exits
+     */
     ServerSocket serverSocket("127.0.0.1", PORT);
     listen(serverSocket);
 
     serverSocket.close();
     return 0;
+
+    // TODO fix user thing so that user is initialized inside of connection upon login
+    // TODO hook everything back up in the connection class and fix the socket class
 }
 
