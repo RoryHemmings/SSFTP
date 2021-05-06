@@ -3,15 +3,6 @@
 
 #include "connection.h"
 
-//size_t printWorkingDirectory(Socket* client)
-//{
-    //User* user = getUserByClient(client);
-    //if (user == NULL)
-        //return SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN);
-
-    //return SFTP::crPwd(out, user->currentDir);
-//}
-
 //void listDirectory(Socket* client, const std::string& path)
 //{
     //// Temporary buffers so that the async buffer doesn't share with the sync one
@@ -167,71 +158,6 @@
     //// TODO figure this out
 //}
 
-//// Returns of message length
-//size_t handleCommand(Socket* client)
-//{
-    //// prevents async from going out of scope and blocking
-    //static std::future<void> temp;
-
-    //switch (SFTP::resolveCommand(in[0]))
-    //{
-    //case SFTP::USER: // sync
-        //// Returns length of output buffer
-        //return checkPassword(client); 
-    //case SFTP::PRWD: // sync
-        //// Returns length of output buffer
-        //return printWorkingDirectory(client);
-    //case SFTP::LIST: // async
-        //temp = std::async(std::launch::async, &listDirectory, client, std::string(in+1));
-        //return 0;
-    //case SFTP::CDIR: // sync
-        //return changeUserDirectory(client);
-    //case SFTP::MDIR: // sync
-        //return createDirectory(client, std::string(in+1));
-    //case SFTP::GRAB: // async
-        //temp = std::async(std::launch::async, &grabFile, client, std::string(in+1));
-        //return 0;
-    //case SFTP::PUTF: // async
-        //temp = std::async(std::launch::async, &receiveFile);
-        //return 0;
-    //}
-
-    //return SFTP::createFailureResponse(out, SFTP::INVALID_COMMAND);
-//}
-
-//size_t handleCommand(Socket* client)
-//{
-    //// prevents async from going out of scope and blocking
-    //static std::future<void> temp;
-
-    //switch (SFTP::resolveCommand(in[0]))
-    //{
-    //case SFTP::USER: // sync
-        //// Returns length of output buffer
-        //return checkPassword(client); 
-    //case SFTP::PRWD: // sync
-        //// Returns length of output buffer
-        //return printWorkingDirectory(client);
-    //case SFTP::LIST: // async
-        //temp = std::async(std::launch::async, &listDirectory, client, std::string(in+1));
-        //return 0;
-    //case SFTP::CDIR: // sync
-        //return changeUserDirectory(client);
-    //case SFTP::MDIR: // sync
-        //return createDirectory(client, std::string(in+1));
-    //case SFTP::GRAB: // async
-        //temp = std::async(std::launch::async, &grabFile, client, std::string(in+1));
-        //return 0;
-    //case SFTP::PUTF: // async
-        //temp = std::async(std::launch::async, &receiveFile);
-        //return 0;
-    //}
-
-    //return SFTP::createFailureResponse(out, SFTP::INVALID_COMMAND);
-//}
-
-
-
 Connection::Connection(Socket* sock)
     : sock(sock)
     , in(NULL)
@@ -302,6 +228,14 @@ size_t Connection::checkPassword()
     return SFTP::createSuccessResponse(out);
 }
 
+size_t Connection::printWorkingDirectory()
+{
+    if (!this->isLoggedIn())
+        return SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN);
+
+    return SFTP::crPwd(out, user.currentDir);
+}
+
 // Returns of message length
 size_t Connection::handleCommand()
 {
@@ -312,7 +246,7 @@ size_t Connection::handleCommand()
         return checkPassword(); 
     case SFTP::PRWD:
         // Returns length of output buffer
-        // return printWorkingDirectory(sock);
+        return printWorkingDirectory();
     case SFTP::LIST:
         // temp = std::async(std::launch::async, &listDirectory, sock, std::string(in+1));
         return 0;
@@ -355,7 +289,7 @@ void Connection::listen()
             return;
         }
 
-        LOGGER::HexDump("recv", in, 100);
+        // LOGGER::HexDump("recv", in, 100);
 
         mtx.lock(); 
         clearBuffer(BUFLEN, out);

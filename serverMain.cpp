@@ -434,8 +434,5 @@ int main(int argc, char** argv)
 
     serverSocket.close();
     return 0;
-
-    // TODO fix user thing so that user is initialized inside of connection upon login
-    // TODO hook everything back up in the connection class and fix the socket class
 }
 

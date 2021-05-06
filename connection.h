@@ -34,7 +34,10 @@ private:
     void listen();
     void setActive(bool active) { running = active; };
 
+    bool isLoggedIn() const { return user.username.size() > 0; };
+
     size_t checkPassword();
+    size_t printWorkingDirectory();
     size_t handleCommand();
 
 private:
