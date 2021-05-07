@@ -6,6 +6,8 @@
 #include <mutex>
 #include <memory>
 
+#include <cmath>
+
 #include "socket.h"
 #include "sftp.h"
 #include "utils.h"
@@ -36,9 +38,14 @@ private:
 
     bool isLoggedIn() const { return user.username.size() > 0; };
 
-    size_t checkPassword();
-    size_t printWorkingDirectory();
-    size_t handleCommand();
+    void checkPassword();
+    void printWorkingDirectory();
+    void listDirectory();
+    void changeUserDirectory();
+    void createDirectory();
+    void grabFile();
+    void receiveFile();
+    void handleCommand();
 
 private:
     User user;

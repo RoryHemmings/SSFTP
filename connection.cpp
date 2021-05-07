@@ -3,50 +3,6 @@
 
 #include "connection.h"
 
-//void listDirectory(Socket* client, const std::string& path)
-//{
-    //// Temporary buffers so that the async buffer doesn't share with the sync one
-    //char tempIn[BUFLEN];
-    //char tempOut[BUFLEN];
-
-    //User* user = getUserByClient(client);
-    //if (user == NULL)
-    //{
-        //client->send(SFTP::createFailureResponse(tempOut, SFTP::NOT_LOGGED_IN), tempOut);
-        //return;
-    //}
-
-    //std::string finalPath = generateNewPath(user->currentDir, path);
-
-    //std::string::size_type homeDirLen = user->homeDir.size();
-    //if (finalPath.substr(0, homeDirLen) != user->homeDir)
-    //{
-        //client->send(SFTP::createFailureResponse(tempOut, SFTP::ACCESS_DENIED), tempOut);
-        //return;
-    //}
-
-    //std::string ret = exec("ls -la " + finalPath);
-    //if (ret.size() == 0)
-    //{
-        //client->send(SFTP::createFailureResponse(tempOut, SFTP::COMMAND_EXECUTION_FAILED), tempOut);
-        //return;
-    //}
-
-    //size_t maxlen = BUFLEN - 2; // max number of data bytes allowed in the buffer (1 header byte and 1 null termination)
-    //uint32_t numPackets = floor(ret.size() / maxlen) + 1; // total number of packets 
-
-    //client->send(SFTP::crLsPrimary(tempOut, numPackets), tempOut);
-
-    //int i = 0;
-    //while (i < ret.size())
-    //{
-        //client->send(SFTP::crLs(tempOut, ret.substr(i, maxlen)), tempOut);
-        //i += maxlen;
-
-        //clearBuffer(BUFLEN, tempIn);
-    //}
-//}
-
 //size_t changeUserDirectory(Socket* client)
 //{
     //User* user = getUserByClient(client);
@@ -182,7 +138,7 @@ Connection::~Connection()
 }
 
 // Returns message length
-size_t Connection::checkPassword()
+void Connection::checkPassword()
 {
     char *encrypted, *p;
     struct passwd *pwd;
@@ -198,13 +154,13 @@ size_t Connection::checkPassword()
 
     pwd = getpwnam(username.c_str());
     if (pwd == NULL)
-        return SFTP::createFailureResponse(out, SFTP::INVALID_USER);
+        sock->send(SFTP::createFailureResponse(out, SFTP::INVALID_USER), out);
 
     spwd = getspnam(username.c_str());
     if (spwd == NULL && errno == EACCES)
     {
         LOGGER::LogError("No Access to Shadow file");
-        return SFTP::createFailureResponse(out, SFTP::MISC_ERROR);
+        sock->send(SFTP::createFailureResponse(out, SFTP::MISC_ERROR), out);
     }
 
     if (spwd != NULL)           // If there is a shadow password record
@@ -214,55 +170,101 @@ size_t Connection::checkPassword()
     if (encrypted == NULL)
     {
         LOGGER::LogError("crpyt() failed");
-        return SFTP::createFailureResponse(out, SFTP::MISC_ERROR);
+        sock->send(SFTP::createFailureResponse(out, SFTP::MISC_ERROR), out);
     }
 
     bool authOk = strcmp(encrypted, pwd->pw_passwd) == 0;
     if (!authOk)
-        return SFTP::createFailureResponse(out, SFTP::INVALID_PASSWORD);
+        sock->send(SFTP::createFailureResponse(out, SFTP::INVALID_PASSWORD), out);
 
     // Login Successful
     user = { username, pwd->pw_dir, pwd->pw_dir };
     LOGGER::DebugLog(this->Name() + " Successfully Logged in user: " + username);
 
-    return SFTP::createSuccessResponse(out);
+    sock->send(SFTP::createSuccessResponse(out), out);
 }
 
-size_t Connection::printWorkingDirectory()
+void Connection::printWorkingDirectory()
 {
     if (!this->isLoggedIn())
-        return SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN);
+    {
+        sock->send(SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN), out);
+        return;
+    }
 
-    return SFTP::crPwd(out, user.currentDir);
+    sock->send(SFTP::crPwd(out, user.currentDir), out);
+}
+
+void Connection::listDirectory()
+{
+    std::string path = std::string(in+1);
+
+    if (!this->isLoggedIn())
+    {
+        sock->send(SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN), out);
+        return;
+    }
+
+    std::string finalPath = generateNewPath(user.currentDir, path);
+
+    std::string::size_type homeDirLen = user.homeDir.size();
+    if (finalPath.substr(0, homeDirLen) != user.homeDir)
+    {
+        sock->send(SFTP::createFailureResponse(out, SFTP::ACCESS_DENIED), out);
+        return;
+    }
+
+    std::string ret = exec("ls -la " + finalPath);
+    if (ret.size() == 0)
+    {
+        sock->send(SFTP::createFailureResponse(out, SFTP::COMMAND_EXECUTION_FAILED), out);
+        return;
+    }
+
+    size_t maxlen = BUFLEN - 2; // max number of data bytes allowed in the buffer (1 header byte and 1 null termination)
+    uint32_t numPackets = floor(ret.size() / maxlen) + 1; // total number of packets 
+
+    sock->send(SFTP::crLsPrimary(out, numPackets), out);
+
+    int i = 0;
+    while (i < ret.size())
+    {
+        sock->send(SFTP::crLs(out, ret.substr(i, maxlen)), out);
+        i += maxlen;
+
+        clearBuffer(BUFLEN, in);
+    }
 }
 
 // Returns of message length
-size_t Connection::handleCommand()
+void Connection::handleCommand()
 {
     switch (SFTP::resolveCommand(in[0]))
     {
     case SFTP::USER:
-        // Returns length of output buffer
-        return checkPassword(); 
+        checkPassword(); 
+        return;
     case SFTP::PRWD:
-        // Returns length of output buffer
-        return printWorkingDirectory();
+        printWorkingDirectory();
+        return;
     case SFTP::LIST:
-        // temp = std::async(std::launch::async, &listDirectory, sock, std::string(in+1));
-        return 0;
+        listDirectory();
+        return;
     case SFTP::CDIR:
         // return changeUserDirectory(sock);
+        return;
     case SFTP::MDIR:
         // return createDirectory(sock, std::string(in+1));
+        return;
     case SFTP::GRAB:
         // temp = std::async(std::launch::async, &grabFile, sock, std::string(in+1));
-        return 0;
+        return;
     case SFTP::PUTF:
         // temp = std::async(std::launch::async, &receiveFile);
-        return 0;
+        return;
     }
 
-    return SFTP::createFailureResponse(out, SFTP::INVALID_COMMAND);
+    sock->send(SFTP::createFailureResponse(out, SFTP::INVALID_COMMAND), out);
 }
 
 void Connection::listen()
@@ -274,6 +276,7 @@ void Connection::listen()
 
     while (running)
     {
+        // Recieve input
         mtx.lock();
         clearBuffer(BUFLEN, in);
         code = sock->recv(in);
@@ -289,11 +292,10 @@ void Connection::listen()
             return;
         }
 
-        // LOGGER::HexDump("recv", in, 100);
-
+        // Handle input
         mtx.lock(); 
         clearBuffer(BUFLEN, out);
-        sock->send(handleCommand(), out);
+        handleCommand();
         mtx.unlock();
     }
 }
