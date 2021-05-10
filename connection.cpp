@@ -1,117 +1,93 @@
+#include <sys/stat.h>
 #include <pwd.h>
 #include <shadow.h>
 
 #include "connection.h"
 
-//size_t changeUserDirectory(Socket* client)
-//{
-    //User* user = getUserByClient(client);
-    //if (user == NULL)
-        //return SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN);
-
-    //std::string path(in+1); // null termination for command acts as null termination for string
-    //std::string newPath = generateNewPath(user->currentDir, path); 
-
-    //// Check if path is valid
-    //struct stat buffer;
-    //if (stat(newPath.c_str(), &buffer) != 0)
-        //return SFTP::createFailureResponse(out, SFTP::INVALID_PATH); 
-
-    //std::string finalPath = newPath;
-
-    //// Check that path is within access bubble
-    //std::string::size_type homeDirLen = user->homeDir.size();
-    //if (newPath.substr(0, homeDirLen) != user->homeDir)
-        //return SFTP::createFailureResponse(out, SFTP::ACCESS_DENIED);
-
-    //user->currentDir = finalPath;
-    //return SFTP::crCd(out, finalPath);
-//}
-
 //size_t createDirectory(Socket* client, const std::string& name)
 //{
-    //User* user = getUserByClient(client);
-    //if (user == NULL)
-        //return SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN);
+//User* user = getUserByClient(client);
+//if (user == NULL)
+//return SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN);
 
-    //std::string path = generateNewPath(user->currentDir, name);
+//std::string path = generateNewPath(user->currentDir, name);
 
-    //// Check that path is within access bubble
-    //std::string::size_type homeDirLen = user->homeDir.size();
-    //if (path.substr(0, homeDirLen) != user->homeDir)
-        //return SFTP::createFailureResponse(out, SFTP::ACCESS_DENIED);
-    
-    //std::string ret = exec("mkdir -p " + path);
-    
-    //return SFTP::crMkDir(out, ret);
+//// Check that path is within access bubble
+//std::string::size_type homeDirLen = user->homeDir.size();
+//if (path.substr(0, homeDirLen) != user->homeDir)
+//return SFTP::createFailureResponse(out, SFTP::ACCESS_DENIED);
+
+//std::string ret = exec("mkdir -p " + path);
+
+//return SFTP::crMkDir(out, ret);
 //}
 
 //// Takes string for file path to prevent buffer issues
 //void grabFile(Socket* client, const std::string& filePath)
 //{
-    //// Temporary buffers so that the async buffer doesn't share with the sync one
-    //char tempIn[BUFLEN];
-    //char tempOut[BUFLEN];
+//// Temporary buffers so that the async buffer doesn't share with the sync one
+//char tempIn[BUFLEN];
+//char tempOut[BUFLEN];
 
-    //User* user = getUserByClient(client);
-    //if (user == NULL)
-    //{
-        //client->send(SFTP::createFailureResponse(tempOut, SFTP::NOT_LOGGED_IN), tempOut);
-        //return;
-    //}
+//User* user = getUserByClient(client);
+//if (user == NULL)
+//{
+//client->send(SFTP::createFailureResponse(tempOut, SFTP::NOT_LOGGED_IN), tempOut);
+//return;
+//}
 
-    //std::string path;
-    //path = generateNewPath(user->currentDir, filePath);
-    
-    //std::ifstream file;
-    //file.open(path, std::ios::binary);
+//std::string path;
+//path = generateNewPath(user->currentDir, filePath);
 
-    //file.seekg(0, file.end);
-    //int fileSize = file.tellg();
-    //file.seekg(0, file.beg);
+//std::ifstream file;
+//file.open(path, std::ios::binary);
 
-    //uint32_t totalPackets = floor(fileSize / (BUFLEN - 4)) + 1;
+//file.seekg(0, file.end);
+//int fileSize = file.tellg();
+//file.seekg(0, file.beg);
 
-    //client->send(SFTP::crGrabPrimary(tempOut, totalPackets, filePath), tempOut);
+//uint32_t totalPackets = floor(fileSize / (BUFLEN - 4)) + 1;
 
-    //if (file.is_open())
-    //{
-        //while (!file.eof())
-        //{
-            //size_t i = 3; // Starts at 3 to leave space for status byte and length 
-            //clearBuffer(BUFLEN, tempOut);
-            //while (i < BUFLEN - 1) // Leave space for null termination
-            //{
-                //char c = (char) file.get();
-                //if (file.eof())
-                    //break;
+//client->send(SFTP::crGrabPrimary(tempOut, totalPackets, filePath), tempOut);
 
-                //tempOut[i] = c;
-                //++i;
-            //}
-            
-            //uint16_t length = i - 3;
+//if (file.is_open())
+//{
+//while (!file.eof())
+//{
+//size_t i = 3; // Starts at 3 to leave space for status byte and length
+//clearBuffer(BUFLEN, tempOut);
+//while (i < BUFLEN - 1) // Leave space for null termination
+//{
+//char c = (char) file.get();
+//if (file.eof())
+//break;
 
-            //[> crGrab works differently from all other response facotries
-             //* Instead of overwriting buffer, it only changes the status byte
-             //* and the length
+//tempOut[i] = c;
+//++i;
+//}
 
-             //* This is done to prevent copying of the entire buffer which would be inefficient
-             //*/
-            //client->send(SFTP::crGrab(tempOut, length), tempOut);
-        //}
-        //file.close();
-    //}
-    //else
-    //{
-        //client->send(SFTP::createFailureResponse(tempOut, SFTP::FAILED_TO_OPEN_FILE), tempOut);
-        //return;
-    //}
+//uint16_t length = i - 3;
+
+//[> crGrab works differently from all other response facotries
+//* Instead of overwriting buffer, it only changes the status byte
+//* and the length
+
+//* This is done to prevent copying of the entire buffer which would be inefficient
+//*/
+//client->send(SFTP::crGrab(tempOut, length), tempOut);
+//}
+//file.close();
+//}
+//else
+//{
+//client->send(SFTP::createFailureResponse(tempOut, SFTP::FAILED_TO_OPEN_FILE), tempOut);
+//return;
+//}
 //}
 
 //void receiveFile()
 //{
-    //// TODO figure this out
+//// TODO figure this out
 //}
 
 Connection::Connection(Socket* sock)
@@ -222,7 +198,7 @@ void Connection::listDirectory()
     }
 
     size_t maxlen = BUFLEN - 2; // max number of data bytes allowed in the buffer (1 header byte and 1 null termination)
-    uint32_t numPackets = floor(ret.size() / maxlen) + 1; // total number of packets 
+    uint32_t numPackets = floor(ret.size() / maxlen) + 1; // total number of packets
 
     sock->send(SFTP::crLsPrimary(out, numPackets), out);
 
@@ -236,13 +212,46 @@ void Connection::listDirectory()
     }
 }
 
+void Connection::changeUserDirectory()
+{
+    if (!this->isLoggedIn())
+    {
+        sock->send(SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN), out);
+        return;
+    }
+
+    std::string path(in+1); // null termination for command acts as null termination for string
+    std::string newPath = generateNewPath(user.currentDir, path);
+
+    // Check if path is valid
+    struct stat buffer;
+    if (stat(newPath.c_str(), &buffer) != 0)
+    {
+        sock->send(SFTP::createFailureResponse(out, SFTP::INVALID_PATH), out);
+        return;
+    }
+
+    std::string finalPath = newPath;
+
+    // Check that path is within access bubble
+    std::string::size_type homeDirLen = user.homeDir.size();
+    if (newPath.substr(0, homeDirLen) != user.homeDir)
+    {
+        sock->send(SFTP::createFailureResponse(out, SFTP::ACCESS_DENIED), out);
+        return;
+    }
+
+    user.currentDir = finalPath;
+    sock->send(SFTP::crCd(out, finalPath), out);
+}
+
 // Returns of message length
 void Connection::handleCommand()
 {
     switch (SFTP::resolveCommand(in[0]))
     {
     case SFTP::USER:
-        checkPassword(); 
+        checkPassword();
         return;
     case SFTP::PRWD:
         printWorkingDirectory();
@@ -251,7 +260,7 @@ void Connection::handleCommand()
         listDirectory();
         return;
     case SFTP::CDIR:
-        // return changeUserDirectory(sock);
+        changeUserDirectory();
         return;
     case SFTP::MDIR:
         // return createDirectory(sock, std::string(in+1));
@@ -293,7 +302,7 @@ void Connection::listen()
         }
 
         // Handle input
-        mtx.lock(); 
+        mtx.lock();
         clearBuffer(BUFLEN, out);
         handleCommand();
         mtx.unlock();
