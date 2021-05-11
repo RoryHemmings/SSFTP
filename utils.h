@@ -22,5 +22,7 @@ bool isSlash(char c);
 void removeDotPairs(std::string& s);
 std::string generateNewPath(const std::string& path, const std::string& next);
 
+std::string getpass(const std::string& prompt, bool shows_asterisk=true);
+
 #endif
 

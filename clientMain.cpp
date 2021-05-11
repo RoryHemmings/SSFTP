@@ -173,7 +173,8 @@ std::string authenticateConnection(ClientSocket& sock)
     LOGGER::Log("Enter password for ", LOGGER::COLOR::MAGENTA, false);
     LOGGER::Log(username, LOGGER::COLOR::CYAN, false);
     LOGGER::Log(": ", LOGGER::COLOR::MAGENTA, false);
-    getline(std::cin, password);
+    // getline(std::cin, password);
+    password = getpass("", true);
 
     // hexDump("UserBuffer", out, 100);
     sock.send(SFTP::ccUser(out, username, password), out);
@@ -223,9 +224,12 @@ void parseLs(ClientSocket& sock)
         // Get secondary information
         sock.recv(in);
 
+        // HERE
+        LOGGER::HexDump("Sock", in, 100);
+
         if (!checkStatus())
             return;
-        
+
         // Append output to output string
         output += std::string(in+1);
         clearBuffers(BUFLEN, in, out);
