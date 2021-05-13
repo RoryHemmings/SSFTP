@@ -250,8 +250,6 @@ void Connection::createDirectory()
     sock->send(SFTP::crMkDir(out, ret), out);
 }
 
-
-
 // Returns of message length
 void Connection::handleCommand()
 {

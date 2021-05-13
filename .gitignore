@@ -1,9 +1,8 @@
-/backup
-/bin
-/res
-/proof-of-concept
+* 
+
+!*.*
+
 *.o
 server
 client
 .vscode
-'
