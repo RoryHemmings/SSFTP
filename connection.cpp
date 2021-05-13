@@ -205,10 +205,10 @@ void Connection::listDirectory()
     int i = 0;
     while (i < ret.size())
     {
+        clearBuffer(BUFLEN, in);
+
         sock->send(SFTP::crLs(out, ret.substr(i, maxlen)), out);
         i += maxlen;
-
-        clearBuffer(BUFLEN, in);
     }
 }
 

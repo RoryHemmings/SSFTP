@@ -211,6 +211,7 @@ void parseLs(ClientSocket& sock)
 
     // Get primary information
     sock.recv(in);
+    LOGGER::HexDump("Primary Buffer", in, 100);
 
     if (!checkStatus()) // Handles errors
         return;
@@ -225,7 +226,7 @@ void parseLs(ClientSocket& sock)
         sock.recv(in);
 
         // HERE
-        LOGGER::HexDump("Sock", in, 100);
+        LOGGER::HexDump("Secondary Buffer", in, 100);
 
         if (!checkStatus())
             return;
