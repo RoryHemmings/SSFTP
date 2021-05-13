@@ -226,7 +226,7 @@ void parseLs(ClientSocket& sock)
         sock.recv(in);
 
         // HERE
-        LOGGER::HexDump("Secondary Buffer", in, 100);
+        // LOGGER::HexDump("Sock", in, 100);
 
         if (!checkStatus())
             return;
