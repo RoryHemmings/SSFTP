@@ -4,24 +4,6 @@
 
 #include "connection.h"
 
-//size_t createDirectory(Socket* client, const std::string& name)
-//{
-//User* user = getUserByClient(client);
-//if (user == NULL)
-//return SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN);
-
-//std::string path = generateNewPath(user->currentDir, name);
-
-//// Check that path is within access bubble
-//std::string::size_type homeDirLen = user->homeDir.size();
-//if (path.substr(0, homeDirLen) != user->homeDir)
-//return SFTP::createFailureResponse(out, SFTP::ACCESS_DENIED);
-
-//std::string ret = exec("mkdir -p " + path);
-
-//return SFTP::crMkDir(out, ret);
-//}
-
 //// Takes string for file path to prevent buffer issues
 //void grabFile(Socket* client, const std::string& filePath)
 //{
@@ -245,6 +227,31 @@ void Connection::changeUserDirectory()
     sock->send(SFTP::crCd(out, finalPath), out);
 }
 
+/* Bugs:
+ * When you try to make a new directory over one that
+ * already exists, it breaks
+ * check to make sure that it doesn't already exist before writing
+ */
+void Connection::createDirectory()
+{
+    if (!this->isLoggedIn())
+        sock->send(SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN), out);
+
+    std::string name = std::string(in+1);
+    std::string path = generateNewPath(user.currentDir, name);
+
+    // Check that path is within access bubble
+    std::string::size_type homeDirLen = user.homeDir.size();
+    if (path.substr(0, homeDirLen) != user.homeDir)
+        sock->send(SFTP::createFailureResponse(out, SFTP::ACCESS_DENIED), out);
+
+    std::string ret = exec("mkdir -p " + path);
+
+    sock->send(SFTP::crMkDir(out, ret), out);
+}
+
+
+
 // Returns of message length
 void Connection::handleCommand()
 {
@@ -263,7 +270,7 @@ void Connection::handleCommand()
         changeUserDirectory();
         return;
     case SFTP::MDIR:
-        // return createDirectory(sock, std::string(in+1));
+        createDirectory();
         return;
     case SFTP::GRAB:
         // temp = std::async(std::launch::async, &grabFile, sock, std::string(in+1));
