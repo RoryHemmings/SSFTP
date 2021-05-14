@@ -187,7 +187,15 @@ void Connection::listDirectory()
     int i = 0;
     while (i < ret.size())
     {
-        clearBuffer(BUFLEN, in);
+        clearBuffers(BUFLEN, in, out);
+
+        // Waits for go-ahead to continue sending
+        sock->recv(in, BUFLEN);
+        if (in[0] != SFTP::SUCCESS)
+        {
+            sock->send(SFTP::createFailureResponse(out, SFTP::INVALID_RESPONSE), out);
+            break;
+        }
 
         sock->send(SFTP::crLs(out, ret.substr(i, maxlen)), out);
         i += maxlen;
@@ -261,7 +269,7 @@ void Connection::handleCommand()
     case SFTP::PRWD:
         printWorkingDirectory();
         return;
-    case SFTP::LIST:
+    case SFTP::LIST:    // Async
         listDirectory();
         return;
     case SFTP::CDIR:
@@ -270,10 +278,10 @@ void Connection::handleCommand()
     case SFTP::MDIR:
         createDirectory();
         return;
-    case SFTP::GRAB:
+    case SFTP::GRAB:    // Aysnc
         // temp = std::async(std::launch::async, &grabFile, sock, std::string(in+1));
         return;
-    case SFTP::PUTF:
+    case SFTP::PUTF:    // Async
         // temp = std::async(std::launch::async, &receiveFile);
         return;
     }
@@ -334,4 +342,3 @@ void Connection::close()
     sock->close();
 }
 
-// Test Comment

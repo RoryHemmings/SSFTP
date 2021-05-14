@@ -211,8 +211,6 @@ void parseLs(ClientSocket& sock)
 
     // Get primary information
     sock.recv(in);
-    LOGGER::HexDump("Primary Buffer", in, 100);
-
     if (!checkStatus()) // Handles errors
         return;
     
@@ -222,12 +220,11 @@ void parseLs(ClientSocket& sock)
 
     do
     {
+        // Give go-ahead to continue receiving
+        sock.send(SFTP::createSuccessResponse(out), out);
+
         // Get secondary information
         sock.recv(in);
-
-        // HERE
-        // LOGGER::HexDump("Sock", in, 100);
-
         if (!checkStatus())
             return;
 
