@@ -261,27 +261,31 @@ void parseGrab(ClientSocket& sock, std::string outputDir)
     if (!checkStatus()) // Handles errors
         return;
 
-    char* outPath;
-
     // Get the uint32_t value: end
     memcpy(&end, in+1, 4);
     path = std::string(in+5);
 
-    clearBuffers(BUFLEN, in, out);
-
     std::ofstream outfile;
-    outfile.open(outputDir + "/" + path, std::ios::binary);
+    std::cout << outputDir + "/" + path << std::endl;
+    outfile.open(generateNewPath(outputDir, path), std::ios::binary);
 
     if (!outfile.is_open())
     {
         error(L_FAILED_TO_OPEN_FILE);
+
+        clearBuffer(BUFLEN, out);
+        sock.send(SFTP::createFailureResponse(out, SFTP::FAILED_TO_OPEN_FILE), out);
         return;
     } 
 
     LOGGER::Log("[", LOGGER::COLOR::WHITE, false);
-
     do
     {
+        clearBuffers(BUFLEN, in, out);
+
+        // Give go-ahead to continue conversation
+        sock.send(SFTP::createSuccessResponse(out), out);
+
         // Get secondary information
         sock.recv(in);
 
@@ -295,14 +299,11 @@ void parseGrab(ClientSocket& sock, std::string outputDir)
         LOGGER::Log("#", LOGGER::COLOR::WHITE, false);
         outfile.write(in+3, length);
 
-        clearBuffers(BUFLEN, in, out);
-
         ++index;
     }
     while (index < end);
 
     LOGGER::Log("]");
-
     outfile.close();
 }
 

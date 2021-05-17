@@ -2,70 +2,9 @@
 #include <pwd.h>
 #include <shadow.h>
 
+#include <fstream>
+
 #include "connection.h"
-
-//// Takes string for file path to prevent buffer issues
-//void grabFile(Socket* client, const std::string& filePath)
-//{
-//// Temporary buffers so that the async buffer doesn't share with the sync one
-//char tempIn[BUFLEN];
-//char tempOut[BUFLEN];
-
-//User* user = getUserByClient(client);
-//if (user == NULL)
-//{
-//client->send(SFTP::createFailureResponse(tempOut, SFTP::NOT_LOGGED_IN), tempOut);
-//return;
-//}
-
-//std::string path;
-//path = generateNewPath(user->currentDir, filePath);
-
-//std::ifstream file;
-//file.open(path, std::ios::binary);
-
-//file.seekg(0, file.end);
-//int fileSize = file.tellg();
-//file.seekg(0, file.beg);
-
-//uint32_t totalPackets = floor(fileSize / (BUFLEN - 4)) + 1;
-
-//client->send(SFTP::crGrabPrimary(tempOut, totalPackets, filePath), tempOut);
-
-//if (file.is_open())
-//{
-//while (!file.eof())
-//{
-//size_t i = 3; // Starts at 3 to leave space for status byte and length
-//clearBuffer(BUFLEN, tempOut);
-//while (i < BUFLEN - 1) // Leave space for null termination
-//{
-//char c = (char) file.get();
-//if (file.eof())
-//break;
-
-//tempOut[i] = c;
-//++i;
-//}
-
-//uint16_t length = i - 3;
-
-//[> crGrab works differently from all other response facotries
-//* Instead of overwriting buffer, it only changes the status byte
-//* and the length
-
-//* This is done to prevent copying of the entire buffer which would be inefficient
-//*/
-//client->send(SFTP::crGrab(tempOut, length), tempOut);
-//}
-//file.close();
-//}
-//else
-//{
-//client->send(SFTP::createFailureResponse(tempOut, SFTP::FAILED_TO_OPEN_FILE), tempOut);
-//return;
-//}
-//}
 
 //void receiveFile()
 //{
@@ -258,6 +197,77 @@ void Connection::createDirectory()
     sock->send(SFTP::crMkDir(out, ret), out);
 }
 
+// Takes string for file path to prevent buffer issues
+void Connection::grabFile()
+{
+    if (!this->isLoggedIn())
+    {
+        sock->send(SFTP::createFailureResponse(out, SFTP::NOT_LOGGED_IN), out);
+        return;
+    }
+
+    std::string path;
+    std::string relativePath(in+1);
+    path = generateNewPath(user.currentDir, relativePath); // takes relative path and makes it absolute
+
+    std::ifstream file;
+    file.open(path, std::ios::binary);
+
+    file.seekg(0, file.end);
+    int fileSize = file.tellg();
+    file.seekg(0, file.beg);
+
+    uint32_t totalPackets = floor(fileSize / (BUFLEN - 4)) + 1;
+
+    sock->send(SFTP::crGrabPrimary(out, totalPackets, relativePath), out);
+
+    if (file.is_open())
+    {
+        while (!file.eof())
+        {
+            clearBuffers(BUFLEN, in, out);
+
+            // Waits for go-ahead to continue sending
+            sock->recv(in);
+            if (in[0] != SFTP::SUCCESS)
+            {
+                file.close();
+                return;
+            }
+
+            size_t i = 3; // Starts at 3 to leave space for status byte and length
+            while (i < BUFLEN - 1) // Leave space for null termination
+            {
+                char c = (char) file.get();
+                if (file.eof())
+                    break;
+
+                out[i] = c;
+                ++i;
+            }
+
+            uint16_t length = i - 3;
+
+            /* crGrab() works differently from all other response facotries
+             * Instead of overwriting buffer, it only changes the status byte
+             * and the length
+
+             * This is done to prevent copying of the entire buffer which would be inefficient.
+             * Therefore, I have to modify the buffer before passing it to the function
+             */
+            sock->send(SFTP::crGrab(out, length), out);
+          }
+          file.close();
+    }
+    else
+    {
+        sock->send(SFTP::createFailureResponse(out, SFTP::FAILED_TO_OPEN_FILE), out);
+        return;
+    }
+}
+
+
+
 // Returns of message length
 void Connection::handleCommand()
 {
@@ -279,7 +289,7 @@ void Connection::handleCommand()
         createDirectory();
         return;
     case SFTP::GRAB:    // Aysnc
-        // temp = std::async(std::launch::async, &grabFile, sock, std::string(in+1));
+        grabFile();
         return;
     case SFTP::PUTF:    // Async
         // temp = std::async(std::launch::async, &receiveFile);
@@ -342,3 +352,9 @@ void Connection::close()
     sock->close();
 }
 
+
+// TODO
+// ls return failure string response
+// make grab work
+// make grab correctly handle errors when invalid path is specified
+// add a -out option for grap and putf (sort out path issues when grabbing long paths)
