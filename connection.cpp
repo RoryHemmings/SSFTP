@@ -51,13 +51,17 @@ void Connection::checkPassword()
 
     pwd = getpwnam(username.c_str());
     if (pwd == NULL)
+    {
         sock->send(SFTP::createFailureResponse(out, SFTP::INVALID_USER), out);
+        return;
+    }
 
     spwd = getspnam(username.c_str());
     if (spwd == NULL && errno == EACCES)
     {
         LOGGER::LogError("No Access to Shadow file");
         sock->send(SFTP::createFailureResponse(out, SFTP::MISC_ERROR), out);
+        return;
     }
 
     if (spwd != NULL)           // If there is a shadow password record
@@ -68,11 +72,15 @@ void Connection::checkPassword()
     {
         LOGGER::LogError("crpyt() failed");
         sock->send(SFTP::createFailureResponse(out, SFTP::MISC_ERROR), out);
+        return;
     }
 
     bool authOk = strcmp(encrypted, pwd->pw_passwd) == 0;
     if (!authOk)
+    {
         sock->send(SFTP::createFailureResponse(out, SFTP::INVALID_PASSWORD), out);
+        return;
+    }
 
     // Login Successful
     user = { username, pwd->pw_dir, pwd->pw_dir };
@@ -213,6 +221,12 @@ void Connection::grabFile()
     std::ifstream file;
     file.open(path, std::ios::binary);
 
+    if (!file.is_open())
+    {
+        sock->send(SFTP::createFailureResponse(out, SFTP::FAILED_TO_OPEN_FILE), out);
+        return;
+    }
+
     file.seekg(0, file.end);
     int fileSize = file.tellg();
     file.seekg(0, file.beg);
@@ -221,52 +235,42 @@ void Connection::grabFile()
 
     sock->send(SFTP::crGrabPrimary(out, totalPackets, relativePath), out);
 
-    if (file.is_open())
+    while (!file.eof())
     {
-        while (!file.eof())
+        clearBuffers(BUFLEN, in, out);
+
+        // Waits for go-ahead to continue sending
+        sock->recv(in);
+        if (in[0] != SFTP::SUCCESS)
         {
-            clearBuffers(BUFLEN, in, out);
+            file.close();
+            return;
+        }
 
-            // Waits for go-ahead to continue sending
-            sock->recv(in);
-            if (in[0] != SFTP::SUCCESS)
-            {
-                file.close();
-                return;
-            }
+        size_t i = 3; // Starts at 3 to leave space for status byte and length
+        while (i < BUFLEN - 1) // Leave space for null termination
+        {
+            char c = (char) file.get();
+            if (file.eof())
+                break;
 
-            size_t i = 3; // Starts at 3 to leave space for status byte and length
-            while (i < BUFLEN - 1) // Leave space for null termination
-            {
-                char c = (char) file.get();
-                if (file.eof())
-                    break;
+            out[i] = c;
+            ++i;
+        }
 
-                out[i] = c;
-                ++i;
-            }
+        uint16_t length = i - 3;
 
-            uint16_t length = i - 3;
+        /* crGrab() works differently from all other response facotries
+         * Instead of overwriting buffer, it only changes the status byte
+         * and the length
 
-            /* crGrab() works differently from all other response facotries
-             * Instead of overwriting buffer, it only changes the status byte
-             * and the length
-
-             * This is done to prevent copying of the entire buffer which would be inefficient.
-             * Therefore, I have to modify the buffer before passing it to the function
-             */
-            sock->send(SFTP::crGrab(out, length), out);
-          }
-          file.close();
+         * This is done to prevent copying of the entire buffer which would be inefficient.
+         * Therefore, I have to modify the buffer before passing it to the function
+         */
+        sock->send(SFTP::crGrab(out, length), out);
     }
-    else
-    {
-        sock->send(SFTP::createFailureResponse(out, SFTP::FAILED_TO_OPEN_FILE), out);
-        return;
-    }
+    file.close();
 }
-
-
 
 // Returns of message length
 void Connection::handleCommand()
@@ -354,7 +358,9 @@ void Connection::close()
 
 
 // TODO
-// ls return failure string response
-// make grab work
+// ls return failure string response (give more detailed error messages upon failure)
 // make grab correctly handle errors when invalid path is specified
 // add a -out option for grap and putf (sort out path issues when grabbing long paths)
+// fix permissions
+//
+// Logging in null user should not cause segmentation fault

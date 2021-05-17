@@ -264,10 +264,11 @@ void parseGrab(ClientSocket& sock, std::string outputDir)
     // Get the uint32_t value: end
     memcpy(&end, in+1, 4);
     path = std::string(in+5);
-
+    std::string outPath = generateNewPath(outputDir, path);
     std::ofstream outfile;
-    std::cout << outputDir + "/" + path << std::endl;
-    outfile.open(generateNewPath(outputDir, path), std::ios::binary);
+    
+    LOGGER::Log("Grabbing: " + outPath);
+    outfile.open(outPath, std::ios::binary);
 
     if (!outfile.is_open())
     {
