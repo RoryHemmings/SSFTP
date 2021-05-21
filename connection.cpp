@@ -122,7 +122,7 @@ void Connection::listDirectory()
     std::string ret = exec("ls -la " + finalPath);
     if (ret.size() == 0)
     {
-        sock->send(SFTP::createFailureResponse(out, SFTP::COMMAND_EXECUTION_FAILED), out);
+        sock->send(SFTP::createFailureResponse(out, SFTP::COMMAND_EXECUTION_FAILED, "cannot find " + finalPath), out);
         return;
     }
 
@@ -361,6 +361,5 @@ void Connection::close()
 // ls return failure string response (give more detailed error messages upon failure)
 // make grab correctly handle errors when invalid path is specified
 // add a -out option for grap and putf (sort out path issues when grabbing long paths)
-// fix permissions
 //
-// Logging in null user should not cause segmentation fault
+// fix permissions - change owner programatically (chown)

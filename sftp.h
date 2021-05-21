@@ -88,6 +88,7 @@ size_t crMkDir(char* out, const std::string& output);
  */
 size_t createSuccessResponse(char* out);
 size_t createFailureResponse(char* out, uint8_t code);
+size_t createFailureResponse(char* out, uint8_t code, const std::string& details);
 
 }
 

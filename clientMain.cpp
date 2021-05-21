@@ -109,6 +109,10 @@ void error(int8_t code)
         LOGGER::LogError("Unkown Error");
         LOGGER::LogError("Code: " + std::to_string(code));
     }
+
+    std::string details(in+2);
+    if (details.size() > 0)
+        LOGGER::Log(details);
 }
 
 L_COMMAND resolveCommand(const std::string& cmd)

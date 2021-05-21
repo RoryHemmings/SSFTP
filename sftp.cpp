@@ -317,3 +317,25 @@ size_t SFTP::createFailureResponse(char* out, uint8_t code)
     return len;
 }
 
+size_t SFTP::createFailureResponse(char* out, uint8_t code, const std::string& details)
+{
+    clearBuffer(BUFLEN, out);
+
+    size_t len = 0;
+    size_t numReservedBytes = 3; // status byte, code byte, null termination
+
+    out[0] = FAILURE;
+    len += 1;
+
+    out[len] = code;
+    len += 1;
+
+    strncpy(out+len, details.c_str(), BUFLEN - numReservedBytes);
+    len += min(details.size(), (size_t) BUFLEN - numReservedBytes);
+
+    out[len] = '\0';
+    len += 1;
+
+    return len;
+}
+
