@@ -9,12 +9,6 @@
 #include <string>
 #include <map>
 
-/*struct Cmd
-{
-  const char* command;
-  int mode;
-}*/
-
 namespace SFTP
 {
 
