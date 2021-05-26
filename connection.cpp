@@ -238,6 +238,7 @@ void Connection::grabFile()
         sock->recv(in);
         if (in[0] != SFTP::SUCCESS)
         {
+            sock->send(SFTP::createFailureResponse(out, SFTP::FAILED_TO_OPEN_FILE), out);
             file.close();
             return;
         }
@@ -277,9 +278,12 @@ void Connection::receiveFile()
     outPath = std::string(in+5);
     std::string path = generateNewPath(user.currentDir, outPath);
 
-    // TODO make sure the path doesn't already exist
-    // if it does, send back custom error about path already existing
-    
+    if (fileExists(path))
+    {
+        sock->send(SFTP::createFailureResponse(out, SFTP::FAILED_TO_OPEN_FILE, "File Already Exists"), out);
+        return;
+    }
+
     std::ofstream outfile;
     outfile.open(path, std::ios::binary);
     if (!outfile.is_open())
@@ -287,7 +291,7 @@ void Connection::receiveFile()
         sock->send(SFTP::createFailureResponse(out, SFTP::FAILED_TO_OPEN_FILE), out);
         return;
     }
-    
+
     do 
     {
         clearBuffers(BUFLEN, in, out);
@@ -299,6 +303,7 @@ void Connection::receiveFile()
         sock->recv(in);
         if (in[0] != SFTP::SUCCESS)
         {
+            std::cout << "File Close" << std::endl;
             outfile.close();
             return;
         }
@@ -309,7 +314,6 @@ void Connection::receiveFile()
         outfile.write(in+3, length);
 
         ++index;
-        std::cout << "Writing " << index << std::endl;
     } while(index < end);
 }
 

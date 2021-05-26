@@ -161,9 +161,28 @@ size_t SFTP::ccPutPrimary(char* out, uint32_t totalPackets, const std::string& p
     return len;
 }
 
+/* Note to self
+ * make sure that you have actually filled out functions
+ * before spending 3 hours trying to figure out why recv()
+ * blocks
+ */
 size_t SFTP::ccPut(char* out, uint16_t dataLength)
 {
-    return 0;    
+    size_t len = 0;  
+
+    out[0] = SUCCESS;
+    len += 1;
+
+    memcpy(out+len, &dataLength, sizeof(dataLength));
+    len += sizeof(dataLength);
+
+    // Skip the data already written
+    len += dataLength;
+
+    out[len] = '\0';
+    len += 1;
+    
+    return len;
 }
 
 size_t SFTP::ccMkDir(char* out, const std::string& name)
@@ -268,11 +287,6 @@ size_t SFTP::crGrab(char* out, uint16_t dataLength)
     len += 1;
     
     return len;
-}
-
-size_t SFTP::crPut(char* out, const std::string& path)
-{
-    return 0;
 }
 
 size_t SFTP::crMkDir(char* out, const std::string& output)

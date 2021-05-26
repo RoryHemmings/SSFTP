@@ -101,7 +101,7 @@ void error(int8_t code)
         LOGGER::LogError("Invalid Command");
         break;
     case L_FAILED_TO_OPEN_FILE:
-        LOGGER::LogError("Failed to open file locally");
+        LOGGER::LogError("Failed to open file locally (check the filename and path)");
         break;
     case L_INVALID_PATH:
         LOGGER::LogError("Invalid Path");
@@ -332,7 +332,7 @@ void parseRm(ClientSocket& sock)
 
 }
 
-void sendFile(ClientSocket& sock, const std::string& localDir, const std::string& filePath)
+void sendFile(ClientSocket& sock, const std::string& localDir, const std::string& filePath, const std::string& outputPath)
 {
     std::string path;
     path = generateNewPath(localDir, filePath);
@@ -352,7 +352,7 @@ void sendFile(ClientSocket& sock, const std::string& localDir, const std::string
 
     uint32_t totalPackets = floor(fileSize / (BUFLEN - 4)) + 1;
 
-    sock.send(SFTP::ccPutPrimary(out, totalPackets, filePath), out);  
+    sock.send(SFTP::ccPutPrimary(out, totalPackets, outputPath), out);  
      
     while (!file.eof())
     {
@@ -376,6 +376,7 @@ void sendFile(ClientSocket& sock, const std::string& localDir, const std::string
         uint16_t length = i - 3;
         sock.send(SFTP::ccPut(out, length), out); // Modifies buffer as opposed to copying it
     }
+    LOGGER::Log("File " + path + " sent to " + outputPath);
 }
 
 void localPwd(const std::string& localDir)
@@ -554,9 +555,14 @@ int main(int argc, char** argv)
                 LOGGER::LogError("the put command is only valid in LOCAL mode");
                 break;
             }
+            if (cmd.size() != 3)
+            {
+                LOGGER::Log("Usage: put <filename> <output path>");
+                break;
+            }
 
             LOGGER::Log("Sending file: " + cmd[1]); 
-            sendFile(sock, localDir, cmd[1]);
+            sendFile(sock, localDir, cmd[1], cmd[2]);
             break;
         case L_MKDIR:
             if (cmd.size() != 2)

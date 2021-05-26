@@ -6,6 +6,10 @@
 #include <algorithm>
 #include <iostream>
 
+#include <sys/stat.h>
+//#include <grp.h>
+//#include <pwd.h>
+
 using namespace std;
 
 void clearBuffer(size_t len, char* buffer) 
@@ -255,3 +259,10 @@ std::string getpass(const std::string& prompt, bool show_asterisk)
   std::cout << std::endl;
   return password;
 }
+
+bool fileExists(const std::string& name)
+{
+    struct stat buffer;   
+    return (stat (name.c_str(), &buffer) == 0); 
+}
+

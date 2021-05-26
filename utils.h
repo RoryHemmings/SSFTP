@@ -24,5 +24,8 @@ std::string generateNewPath(const std::string& path, const std::string& next);
 
 std::string getpass(const std::string& prompt, bool shows_asterisk=true);
 
+bool fileExists(const std::string& name);
+// bool chownFile(const std::string& username);
+
 #endif
 

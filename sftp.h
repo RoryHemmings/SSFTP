@@ -80,7 +80,6 @@ size_t crLs(char* out, const std::string& data);
 size_t crCd(char* out, const std::string& finalPath);
 size_t crGrabPrimary(char* out, uint32_t totalPackets, const std::string& path);
 size_t crGrab(char* out, uint16_t dataLength);
-size_t crPut(char* out, const std::string& path);
 size_t crMkDir(char* out, const std::string& output);
 
 /*
