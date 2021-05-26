@@ -55,7 +55,8 @@ enum L_ERROR
 {
     L_INVALID_COMMAND = -1,
     L_FAILED_TO_OPEN_FILE = -2,
-    L_INVALID_PATH = -3
+    L_INVALID_PATH = -3,
+    L_FILE_SEND_FAILED = -4
 };
 
 /* Positive codes are remote and negative errors are local */
@@ -104,6 +105,9 @@ void error(int8_t code)
         break;
     case L_INVALID_PATH:
         LOGGER::LogError("Invalid Path");
+        break;
+    case L_FILE_SEND_FAILED:
+        LOGGER::LogError("Failed to send file");
         break;
     default:
         LOGGER::LogError("Unkown Error");
@@ -270,6 +274,8 @@ void parseGrab(ClientSocket& sock, std::string outputDir)
     path = std::string(in+5);
     std::string outPath = generateNewPath(outputDir, path);
     std::ofstream outfile;
+
+    // TODO check to make sure that path doesn't already exist
     
     LOGGER::Log("Grabbing: " + outPath);
     outfile.open(outPath, std::ios::binary);
@@ -333,6 +339,11 @@ void sendFile(ClientSocket& sock, const std::string& localDir, const std::string
 
     std::ifstream file;
     file.open(path, std::ios::binary);
+    if (!file.is_open())
+    {
+        error(L_FAILED_TO_OPEN_FILE);
+        return;
+    }
 
     // Get file size
     file.seekg(0, file.end);
@@ -341,33 +352,30 @@ void sendFile(ClientSocket& sock, const std::string& localDir, const std::string
 
     uint32_t totalPackets = floor(fileSize / (BUFLEN - 4)) + 1;
 
-    sock.send(SFTP::ccPutPrimary(out, totalPackets, path), out);  
-    sock.recv(in);
-
-    if (!checkStatus())
-        return; 
-
-    if (file.is_open())
+    sock.send(SFTP::ccPutPrimary(out, totalPackets, filePath), out);  
+     
+    while (!file.eof())
     {
-        while (!file.eof())
+        clearBuffers(BUFLEN, in, out);
+
+        sock.recv(in);
+        if (!checkStatus())
+            return;       
+
+        size_t i = 3; // Starts at 3 to leave space for status byte and length
+        while (i < BUFLEN - 1)
         {
-            size_t i = 3; // Starts at 3 to leave space for status byte and length
-            clearBuffer(BUFLEN, out);
-            while (i < BUFLEN - 1)
-            {
-                char c = (char) file.get();
-                if (file.eof())
-                    break;
+            char c = (char) file.get();
+            if (file.eof())
+                break;
 
-                out[i] = c;
-                ++i;
-            }
-
-            uint16_t length = i - 3;
-            sock.send(SFTP::ccPut(out, length), out); // Modifies buffer as opposed to copying it
+            out[i] = c;
+            ++i;
         }
-    }
 
+        uint16_t length = i - 3;
+        sock.send(SFTP::ccPut(out, length), out); // Modifies buffer as opposed to copying it
+    }
 }
 
 void localPwd(const std::string& localDir)
@@ -548,7 +556,7 @@ int main(int argc, char** argv)
             }
 
             LOGGER::Log("Sending file: " + cmd[1]); 
-            // sendFile(sock, localDir, cmd[1]);
+            sendFile(sock, localDir, cmd[1]);
             break;
         case L_MKDIR:
             if (cmd.size() != 2)

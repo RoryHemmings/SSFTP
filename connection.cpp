@@ -6,11 +6,6 @@
 
 #include "connection.h"
 
-//void receiveFile()
-//{
-//// TODO figure this out
-//}
-
 Connection::Connection(Socket* sock)
     : sock(sock)
     , in(NULL)
@@ -272,7 +267,52 @@ void Connection::grabFile()
     file.close();
 }
 
-// Returns of message length
+void Connection::receiveFile()
+{
+    uint32_t index = 0, end;
+    std::string outPath;
+
+    // Copy final index from buffer (4 bytes since uint32_t)
+    memcpy(&end, in+1, 4);
+    outPath = std::string(in+5);
+    std::string path = generateNewPath(user.currentDir, outPath);
+
+    // TODO make sure the path doesn't already exist
+    // if it does, send back custom error about path already existing
+    
+    std::ofstream outfile;
+    outfile.open(path, std::ios::binary);
+    if (!outfile.is_open())
+    {
+        sock->send(SFTP::createFailureResponse(out, SFTP::FAILED_TO_OPEN_FILE), out);
+        return;
+    }
+    
+    do 
+    {
+        clearBuffers(BUFLEN, in, out);
+
+        // Give go-ahead to continue conversation
+        sock->send(SFTP::createSuccessResponse(out), out);
+
+        // Receive secondary information
+        sock->recv(in);
+        if (in[0] != SFTP::SUCCESS)
+        {
+            outfile.close();
+            return;
+        }
+
+        uint16_t length;
+        memcpy(&length, in+1, 2); // Copy unit16_t into length
+
+        outfile.write(in+3, length);
+
+        ++index;
+        std::cout << "Writing " << index << std::endl;
+    } while(index < end);
+}
+
 void Connection::handleCommand()
 {
     switch (SFTP::resolveCommand(in[0]))
@@ -296,7 +336,7 @@ void Connection::handleCommand()
         grabFile();
         return;
     case SFTP::PUTF:    // Async
-        // temp = std::async(std::launch::async, &receiveFile);
+        receiveFile();
         return;
     }
 
@@ -312,7 +352,7 @@ void Connection::listen()
 
     while (running)
     {
-        // Recieve input
+        // Receive input
         mtx.lock();
         clearBuffer(BUFLEN, in);
         code = sock->recv(in);
