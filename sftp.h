@@ -12,17 +12,6 @@
 namespace SFTP
 {
 
-class SFTPMessage
-{
-
-public:
-
-
-private:
-
-
-}
-
 // Commands along with their binary represenations (in hex form)
 enum COMMAND
 {
