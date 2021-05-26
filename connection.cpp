@@ -107,6 +107,7 @@ void Connection::listDirectory()
 
     std::string finalPath = generateNewPath(user.currentDir, path);
 
+    // Make sure that finalPath is within access bubble
     std::string::size_type homeDirLen = user.homeDir.size();
     if (finalPath.substr(0, homeDirLen) != user.homeDir)
     {
@@ -193,7 +194,10 @@ void Connection::createDirectory()
     // Check that path is within access bubble
     std::string::size_type homeDirLen = user.homeDir.size();
     if (path.substr(0, homeDirLen) != user.homeDir)
+    {
         sock->send(SFTP::createFailureResponse(out, SFTP::ACCESS_DENIED), out);
+        return;
+    }
 
     std::string ret = exec("mkdir -p " + path);
 
@@ -271,16 +275,23 @@ void Connection::grabFile()
 void Connection::receiveFile()
 {
     uint32_t index = 0, end;
-    std::string outPath;
+    std::string filename;
 
     // Copy final index from buffer (4 bytes since uint32_t)
     memcpy(&end, in+1, 4);
-    outPath = std::string(in+5);
-    std::string path = generateNewPath(user.currentDir, outPath);
+    filename = std::string(in+5);
+    std::string path = generateNewPath(user.currentDir, filename);
 
     if (fileExists(path))
     {
         sock->send(SFTP::createFailureResponse(out, SFTP::FAILED_TO_OPEN_FILE, "File Already Exists"), out);
+        return;
+    }
+
+    std::string::size_type homeDirLen = user.homeDir.size();
+    if (path.substr(0, homeDirLen) != user.homeDir)
+    {
+        sock->send(SFTP::createFailureResponse(out, SFTP::ACCESS_DENIED), out);
         return;
     }
 

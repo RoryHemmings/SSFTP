@@ -561,7 +561,6 @@ int main(int argc, char** argv)
                 break;
             }
 
-            LOGGER::Log("Sending file: " + cmd[1]); 
             sendFile(sock, localDir, cmd[1], cmd[2]);
             break;
         case L_MKDIR:
