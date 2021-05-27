@@ -56,7 +56,8 @@ enum L_ERROR
     L_INVALID_COMMAND = -1,
     L_FAILED_TO_OPEN_FILE = -2,
     L_INVALID_PATH = -3,
-    L_FILE_SEND_FAILED = -4
+    L_FILE_SEND_FAILED = -4,
+    L_FILE_EXISTS = -5
 };
 
 /* Positive codes are remote and negative errors are local */
@@ -108,6 +109,9 @@ void error(int8_t code)
         break;
     case L_FILE_SEND_FAILED:
         LOGGER::LogError("Failed to send file");
+        break;
+    case L_FILE_EXISTS:
+        LOGGER::LogError("File Already Exists");
         break;
     default:
         LOGGER::LogError("Unkown Error");
@@ -166,7 +170,7 @@ bool checkStatus()
     }
 }
 
-std::string authenticateConnection(ClientSocket& sock)
+std::string authenticateConnection(ClientSocket& sock, std::string& remoteHomeDir)
 {
     clearBuffers(BUFLEN, in, out);
 
@@ -190,9 +194,10 @@ std::string authenticateConnection(ClientSocket& sock)
 
     if (!checkStatus())
     {
-        username = authenticateConnection(sock); // Run recursively until success
+        username = authenticateConnection(sock, remoteHomeDir); // Run recursively until success
     }
 
+    remoteHomeDir = std::string(in+1);
     return username;
 }
 
@@ -258,10 +263,10 @@ void parseCd(ClientSocket& sock, std::string& remoteDir)
     
 }
 
-void parseGrab(ClientSocket& sock, std::string outputDir)
+void parseGrab(ClientSocket& sock, const std::string& outputDir, const std::string& fn="")
 {
     uint32_t index = 0, end;
-    std::string path;
+    std::string filename = fn;
     
     // Get primary information
     sock.recv(in);
@@ -271,13 +276,21 @@ void parseGrab(ClientSocket& sock, std::string outputDir)
 
     // Get the uint32_t value: end
     memcpy(&end, in+1, 4);
-    path = std::string(in+5);
-    std::string outPath = generateNewPath(outputDir, path);
-    std::ofstream outfile;
 
-    // TODO check to make sure that path doesn't already exist
+    if (filename.size() == 0)
+        filename = std::string(in+5);
+
+    std::string outPath = generateNewPath(outputDir, filename);
+
+    if (fileExists(outPath))
+    {
+        error(L_FILE_EXISTS);
+        return;
+    }
     
-    LOGGER::Log("Grabbing: " + outPath);
+    LOGGER::Log("Grabbing into: " + outPath);
+
+    std::ofstream outfile;
     outfile.open(outPath, std::ios::binary);
 
     if (!outfile.is_open())
@@ -466,7 +479,7 @@ int main(int argc, char** argv)
     else
         error(in[1]);  // Server sent invalid response
 
-    username = authenticateConnection(sock);
+    username = authenticateConnection(sock, remoteDir);
 
     std::string input;
     size_t len = 0;
@@ -541,13 +554,18 @@ int main(int argc, char** argv)
                 LOGGER::LogError("the grab command is only valid in REMOTE mode");
                 break;
             }
-            if (cmd.size() != 2)
+            if (cmd.size() != 2 && cmd.size() != 3)
             {
-                LOGGER::Log("Usage: grab <filename>");
+                LOGGER::Log("Usage: grab <filename> <outputFilename:optional>");
                 break;
             }
+
             sock.send(SFTP::ccGrab(out, cmd[1]), out);
-            parseGrab(sock, localDir);
+            if (cmd.size() == 3)
+                parseGrab(sock, localDir, cmd[2]);
+            else
+                parseGrab(sock, localDir);
+
             break;
         case L_PUT:
             if (mode != LOCAL)

@@ -68,6 +68,7 @@ size_t ccRm(char* out, const std::string& path);
  * Response Factories (used by server)
  */
 
+size_t crUser(char* out, const std::string& path);
 size_t crPwd(char* out, const std::string& workingDir);
 size_t crLsPrimary(char* out, uint32_t totalPackets);
 size_t crLs(char* out, const std::string& data);

@@ -196,6 +196,11 @@ size_t SFTP::ccRm(char* out, const std::string& path)
     return 0;
 }
 
+size_t SFTP::crUser(char* out, const string& path)
+{
+    return createStringSandwich(out, SUCCESS, path);
+}
+
 size_t SFTP::crPwd(char* out, const string& currentDir)
 {
     return createStringSandwich(out, SUCCESS, currentDir);

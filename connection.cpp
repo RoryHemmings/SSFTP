@@ -81,7 +81,7 @@ void Connection::checkPassword()
     user = { username, pwd->pw_dir, pwd->pw_dir };
     LOGGER::DebugLog(this->Name() + " Successfully Logged in user: " + username);
 
-    sock->send(SFTP::createSuccessResponse(out), out);
+    sock->send(SFTP::crUser(out, std::string(user.homeDir)), out);
 }
 
 void Connection::printWorkingDirectory()
