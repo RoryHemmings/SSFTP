@@ -125,7 +125,6 @@ ServerSocket::ServerSocket(const string& adress, int port)
         exit(1);
     }
 
-    LOGGER::DebugLog("Server is running: ");
     cout << "Server is running: " << inet_ntoa(servAddr.sin_addr) << endl;
 }
 

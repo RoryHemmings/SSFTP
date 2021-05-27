@@ -451,9 +451,9 @@ void helpMenu()
     LOGGER::Log("cd <path>              changes working directory of current mode");
     LOGGER::Log("mkdir <name>           creates new directory with name 'name' in current mode");
     LOGGER::Log("");
-    LOGGER::Log("grab <path>            downloads file from path on remote machine to current directory on local machine");
+    LOGGER::Log("grab <path> <out:opt>  downloads file from path on remote machine to current directory on local machine");
     LOGGER::Log("                       only available in remote mode");
-    LOGGER::Log("put <path>             uploads file from path on local machine to current directory on remote machine");
+    LOGGER::Log("put <path> <out>       uploads file from path on local machine to current directory on remote machine");
     LOGGER::Log("                       only available in local mode");
     LOGGER::Log("");
     LOGGER::Log("clear                  clears the console");
